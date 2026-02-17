@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Cricket Auction Pro",
+  "description": "A high-performance, real-time cricket auction management platform featuring team bidding, player categorization, and live purse tracking.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
