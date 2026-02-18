@@ -2,8 +2,6 @@
 import React from 'react';
 
 // Define 'iconify-icon' as a valid intrinsic element to fix JSX TypeScript errors
-// We augment the global JSX namespace as well as the 'react' module's JSX namespace
-// to ensure compatibility with different TypeScript configurations and React versions.
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -36,6 +34,7 @@ export enum PlayerProfile {
 
 export interface Tournament {
   id: string;
+  sheetId?: string;
   name: string;
   venue: string;
   auctionDate: string;
@@ -45,6 +44,7 @@ export interface Tournament {
 
 export interface Team {
   id: string;
+  sheetId?: string;
   tournamentId: string;
   name: string;
   owner: string;
@@ -55,6 +55,7 @@ export interface Team {
 
 export interface Category {
   id: string;
+  sheetId?: string;
   tournamentId: string;
   name: string;
   basePrice: number;
@@ -62,6 +63,7 @@ export interface Category {
 
 export interface Player {
   id: string;
+  sheetId?: string;
   tournamentId: string;
   name: string;
   mobileNumber: string;

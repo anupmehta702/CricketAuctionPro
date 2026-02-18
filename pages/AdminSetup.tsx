@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerProfile, PlayerStatus } from '../types';
@@ -17,12 +16,14 @@ const AdminSetup: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId?: string }>();
   const navigate = useNavigate();
   const { 
-    addTournament, updateTournament, getTournamentData,
-    addTeam, deleteTeam, addCategory, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer 
+    addTournament, updateTournament, getTournamentData, updateUrl, setUpdateUrl,
+    sheetUrl, setSheetUrl,
+    addTeam, bulkAddTeams, deleteTeam, addCategory, bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer 
   } = useAuction();
 
   const [activeStep, setActiveStep] = useState<Step>(Step.TOURNAMENT);
   const [isSyncing, setIsSyncing] = useState(false);
+  
   const data = getTournamentData(tournamentId || '');
 
   const [tournamentForm, setTournamentForm] = useState({
@@ -58,98 +59,141 @@ const AdminSetup: React.FC = () => {
     }
   };
 
-  const syncFromGoogleSheet = async () => {
-    if (!tournamentId) return;
-    const SHEET_ID = '1ksl1ohIMI4hEHI7Lvu6I1oFs_vWEIBhwYVEQQFsZLo0';
-    const EXPORT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`;
+  const getExportUrl = (url: string) => {
+    try {
+      const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (idMatch && idMatch[1]) {
+        return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=xlsx`;
+      }
+      return url;
+    } catch (e) {
+      return url;
+    }
+  };
 
+  const syncMasterFromGoogleSheet = async () => {
     setIsSyncing(true);
+    const EXPORT_URL = getExportUrl(sheetUrl);
+
     try {
       const response = await fetch(EXPORT_URL);
       if (!response.ok) throw new Error('Failed to fetch Google Sheet. Ensure it is public.');
       
       const arrayBuffer = await response.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const rows = XLSX.utils.sheet_to_json(ws);
-
-      if (rows.length === 0) {
-        alert("The sheet seems to be empty.");
-        return;
-      }
-
-      const playersToAdd: any[] = [];
-      const missingCategories = new Set<string>();
-
-      rows.forEach((row: any) => {
-        // Flexible column mapping
-        const fullName = row['Full Name'] || row['Name'] || row['Player Name'] || row['PlayerName'];
-        const profileStr = row['Profile'] || row['Role'] || row['Type'] || row['Player Profile'];
-        const categoryName = row['Category'] || row['Cat'] || row['Player Category'];
-
-        if (!fullName) return;
-
-        // Try to find Category ID
-        let category = data.categories.find(
-          c => c.name.toLowerCase().trim() === (categoryName || 'General').toString().toLowerCase().trim()
-        );
-
-        // If category missing, we'll mark it to alert user later or handle it
-        if (!category && categoryName) {
-          missingCategories.add(categoryName.toString());
-        }
-
-        // Try to find Profile Enum mapping
-        let profile = Object.values(PlayerProfile).find(
-          p => p.toLowerCase().trim() === (profileStr || 'Batsman').toString().toLowerCase().trim()
-        );
-        
-        // Fallback profile mapping if string doesn't match exactly
-        if (!profile && profileStr) {
-          const s = profileStr.toString().toLowerCase();
-          if (s.includes('bat')) profile = PlayerProfile.BATSMAN;
-          else if (s.includes('bowl')) profile = PlayerProfile.BOWLER;
-          else if (s.includes('all') || s.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
-          else if (s.includes('wk') || s.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
-        }
-
-        playersToAdd.push({
-          tournamentId,
-          name: fullName.toString(),
-          mobileNumber: (row['Mobile'] || row['Phone'] || '').toString(), 
-          categoryId: category?.id || '', // Temporarily empty if missing
-          profile: profile || PlayerProfile.BATSMAN,
-          imageUrl: (row['Image'] || row['Photo'] || '').toString(),
-          categoryName: (categoryName || 'General').toString() // Keep for reference
-        });
-      });
-
-      // Handle players with missing categories by assigning them to the first available category or a default one
-      const finalizedPlayers = playersToAdd.map(p => {
-        if (!p.categoryId) {
-          const cat = data.categories.find(c => c.name.toLowerCase() === p.categoryName.toLowerCase()) 
-                      || data.categories[0];
-          return { ...p, categoryId: cat?.id || '' };
-        }
-        return p;
-      }).filter(p => p.categoryId); // Filter out if still no category (means no categories exist at all)
-
-      if (finalizedPlayers.length === 0 && data.categories.length === 0) {
-        alert("Please create at least one Category in the app before syncing players.");
-        setActiveStep(Step.CATEGORIES);
-        return;
-      }
-
-      bulkAddPlayers(finalizedPlayers);
-      alert(`Successfully synced ${finalizedPlayers.length} players from Google Sheet.`);
       
-      if (missingCategories.size > 0) {
-        console.warn("Some categories in the sheet were not found in the app and were mapped to defaults:", Array.from(missingCategories));
+      // 1. TOURNAMENT DETAILS
+      const tSheet = wb.SheetNames.find((name: string) => name.toLowerCase().replace(/\s/g, '') === 'tournamentdetails');
+      let currentTid = tournamentId;
+      if (tSheet) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[tSheet]);
+        if (rows.length > 0) {
+          const row: any = rows[0];
+          const tData = {
+            name: (row['name'] || row['Name'] || 'New Tournament').toString(),
+            venue: (row['place'] || row['Place'] || 'Unknown Venue').toString(),
+            auctionDate: new Date().toISOString().split('T')[0],
+            numberOfTeams: parseInt(row['No. of teams'] || row['no. of teams'] || '8'),
+            playersPerTeam: parseInt(row['Players per team'] || row['players per team'] || '15'),
+            sheetId: (row['tournament ID'] || row['tournament id'] || '').toString()
+          };
+          if (!currentTid) {
+            const newT = addTournament(tData);
+            currentTid = newT.id;
+            navigate(`/admin/${newT.id}`);
+          } else {
+            updateTournament({ ...tData, id: currentTid });
+          }
+        }
       }
+
+      if (!currentTid) {
+        alert("Tournament details not found in sheet.");
+        setIsSyncing(false);
+        return;
+      }
+
+      const now = Date.now();
+
+      // 2. CATEGORIES
+      const categoryMap = new Map<string, string>(); // name -> spreadsheetId
+      const cSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'categories');
+      if (cSheet) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[cSheet]);
+        const catsToAdd = rows.map((row: any, idx: number) => {
+          const sheetCatId = (row['Category ID'] || row['category id'] || row['ID'] || '').toString();
+          const finalId = sheetCatId || `cat-${now}-${idx}`;
+          const catName = (row['Category Name'] || row['Category name'] || 'General').toString();
+          categoryMap.set(catName.toLowerCase().trim(), finalId);
+          return {
+            id: finalId,
+            tournamentId: currentTid!,
+            name: catName,
+            basePrice: parseFloat(row['Base Price'] || row['base price'] || '0'),
+            sheetId: sheetCatId
+          };
+        });
+        if (catsToAdd.length > 0) bulkAddCategories(currentTid, catsToAdd);
+      }
+
+      // 3. TEAMS
+      const teamSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'teams');
+      if (teamSheet) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[teamSheet]);
+        const teamsToAdd = rows.map((row: any, idx: number) => {
+          const sheetTeamId = (row['Team ID'] || row['Team id'] || row['ID'] || '').toString();
+          return {
+            id: sheetTeamId || `team-${now}-${idx}`,
+            tournamentId: currentTid!,
+            name: (row['Team Name'] || row['team name'] || 'Team').toString(),
+            owner: (row['Team owner'] || row['Team Owner'] || 'N/A').toString(),
+            purse: parseFloat(row['Purse'] || row['purse'] || '100'),
+            sheetId: sheetTeamId
+          };
+        });
+        if (teamsToAdd.length > 0) bulkAddTeams(currentTid, teamsToAdd);
+      }
+
+      // 4. PLAYERS (Sheet1)
+      const pSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'sheet1');
+      if (pSheet) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[pSheet]);
+        const playersToAdd = rows.map((row: any, idx: number) => {
+          const catNameFromSheet = (row['Category'] || row['category'] || '').toString().toLowerCase().trim();
+          const categoryId = categoryMap.get(catNameFromSheet) || '';
+          
+          let profile = PlayerProfile.BATSMAN;
+          const pStr = (row['Profile'] || row['profile'] || '').toString().toLowerCase();
+          if (pStr.includes('bowl')) profile = PlayerProfile.BOWLER;
+          else if (pStr.includes('all') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
+          else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
+
+          const sheetPlayerId = (row['id'] || row['ID'] || '').toString();
+          const sheetStatusRaw = (row['status'] || row['Status'] || 'AVAILABLE').toString().toUpperCase();
+          let status = PlayerStatus.AVAILABLE;
+          if (sheetStatusRaw === 'SOLD') status = PlayerStatus.SOLD;
+          if (sheetStatusRaw === 'UNSOLD') status = PlayerStatus.UNSOLD;
+
+          return {
+            id: sheetPlayerId || `player-${now}-${idx}`,
+            tournamentId: currentTid!,
+            sheetId: sheetPlayerId,
+            name: (row['Full Name'] || row['full name'] || 'Unknown Player').toString(),
+            mobileNumber: '',
+            categoryId,
+            profile,
+            imageUrl: '',
+            status
+          };
+        }).filter(p => p.name !== 'Unknown Player');
+
+        if (playersToAdd.length > 0) bulkAddPlayers(currentTid, playersToAdd);
+      }
+
+      alert("Master Sync Complete! Tournament details, Teams, Categories, and Players imported.");
     } catch (err) {
-      console.error("Error syncing Google Sheet:", err);
-      alert("Failed to sync. Please ensure:\n1. The Google Sheet is shared as 'Anyone with the link can view'.\n2. Columns are named correctly (e.g., 'Full Name', 'Profile', 'Category').");
+      console.error("Master Sync Error:", err);
+      alert("Failed to perform Master Sync. Check URL and connectivity.");
     } finally {
       setIsSyncing(false);
     }
@@ -183,9 +227,46 @@ const AdminSetup: React.FC = () => {
         {activeStep === Step.TOURNAMENT && (
           <>
             <div className="flex flex-col gap-1">
-              <h1 className="text-3xl font-bold font-display tracking-tight">Create Tournament</h1>
-              <p className="text-sm text-slate-400">Set up your league details to get started</p>
+              <h1 className="text-3xl font-bold font-display tracking-tight">Setup Tournament</h1>
+              <p className="text-sm text-slate-400">Import everything from Google Sheets or enter manually</p>
             </div>
+
+            <div className="glass-card rounded-2xl p-6 border-l-4 border-l-green-500 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <iconify-icon icon="lucide:layers" className="text-green-500 text-xl" />
+                <h3 className="text-sm font-bold uppercase tracking-widest">Master Cloud Sync</h3>
+              </div>
+              <p className="text-[11px] text-slate-400">Pulls Tournament, Teams, Categories, and Players from specified sheets.</p>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Read URL (Export)</label>
+                <input 
+                  type="text" 
+                  value={sheetUrl} 
+                  onChange={(e) => setSheetUrl(e.target.value)}
+                  placeholder="Paste Google Sheet URL"
+                  className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-blue-300 focus:outline-none focus:border-blue-500"
+                />
+                
+                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1 mt-2">Update URL (Apps Script)</label>
+                <input 
+                  type="text" 
+                  value={updateUrl} 
+                  onChange={(e) => setUpdateUrl(e.target.value)}
+                  placeholder="Paste Google Apps Script Web App URL"
+                  className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-amber-300 focus:outline-none focus:border-blue-500"
+                />
+                
+                <button 
+                  onClick={syncMasterFromGoogleSheet}
+                  disabled={isSyncing}
+                  className={`w-full py-3 mt-2 rounded-xl bg-green-600 hover:bg-green-500 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isSyncing ? 'opacity-50' : ''}`}
+                >
+                  <iconify-icon icon={isSyncing ? "lucide:refresh-cw" : "lucide:cloud-download"} className={isSyncing ? "animate-spin" : ""} />
+                  {isSyncing ? "Syncing..." : "Run Master Sync"}
+                </button>
+              </div>
+            </div>
+
             <form id="tournament-form" onSubmit={handleTournamentSubmit} className="flex flex-col gap-6 pb-24">
               <div className="glass-card rounded-2xl p-6 space-y-5">
                 <div className="flex flex-col gap-2">
@@ -220,8 +301,10 @@ const AdminSetup: React.FC = () => {
         {activeStep === Step.TEAMS && tournamentId && (
           <div className="flex flex-col gap-8">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold font-display uppercase tracking-widest text-slate-400">Add New Team</h2>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold uppercase">Step 2/4</span>
+              <div>
+                <h2 className="text-sm font-bold font-display uppercase tracking-widest text-slate-400">Add New Team</h2>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold uppercase">Step 2/4</span>
+              </div>
             </div>
             <form onSubmit={e => { e.preventDefault(); addTeam({ ...teamForm, tournamentId }); setTeamForm({ name: '', owner: '', purse: 100 }); }} className="glass-card p-5 rounded-3xl flex flex-col gap-5">
               <div className="flex flex-col gap-2">
@@ -244,7 +327,10 @@ const AdminSetup: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 text-blue-500 font-bold italic text-lg">{team.name.substring(0,2).toUpperCase()}</div>
                     <div>
-                      <h3 className="font-bold text-sm">{team.name}</h3>
+                      <h3 className="font-bold text-sm">
+                        <span className="text-blue-400 mr-2 text-[10px]">#{team.id}</span>
+                        {team.name}
+                      </h3>
                       <p className="text-[10px] text-slate-400">Owner: {team.owner}</p>
                     </div>
                   </div>
@@ -260,7 +346,9 @@ const AdminSetup: React.FC = () => {
 
         {activeStep === Step.CATEGORIES && tournamentId && (
           <div className="flex flex-col gap-8">
-            <h2 className="text-2xl font-bold font-display mb-1">Player Categories</h2>
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-2xl font-bold font-display">Player Categories</h2>
+            </div>
             <form onSubmit={e => { e.preventDefault(); addCategory({ ...categoryForm, tournamentId }); setCategoryForm({ name: '', basePrice: 2 }); }} className="glass-card rounded-2xl p-5 border border-white/5">
               <h3 className="text-sm font-bold uppercase tracking-widest text-yellow-500 mb-4 flex items-center gap-2">Add New Category</h3>
               <div className="flex flex-col gap-4">
@@ -278,7 +366,13 @@ const AdminSetup: React.FC = () => {
             <div className="space-y-3 pb-24">
               {data.categories.map(cat => (
                 <div key={cat.id} className="glass-card rounded-xl p-4 flex items-center justify-between border border-white/5">
-                  <div><p className="font-bold font-display text-lg">{cat.name}</p><p className="text-xs text-yellow-500 font-bold">Base: ₹{cat.basePrice} Cr</p></div>
+                  <div>
+                    <p className="font-bold font-display text-lg">
+                      <span className="text-blue-400 mr-2 text-xs">#{cat.id}</span>
+                      {cat.name}
+                    </p>
+                    <p className="text-xs text-yellow-500 font-bold">Base: ₹{cat.basePrice} Cr</p>
+                  </div>
                   <button onClick={() => deleteCategory(cat.id)} className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500"><iconify-icon icon="lucide:trash-2" /></button>
                 </div>
               ))}
@@ -290,16 +384,6 @@ const AdminSetup: React.FC = () => {
           <div className="space-y-8">
             <div className="flex justify-between items-center">
               <div><h2 className="text-2xl font-bold font-display">Player Roster</h2><p className="text-xs text-slate-400 mt-1">Manage all participants</p></div>
-              <div className="flex flex-col items-center gap-1 group">
-                <button 
-                  onClick={syncFromGoogleSheet}
-                  disabled={isSyncing}
-                  className={`w-10 h-10 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all ${isSyncing ? 'animate-spin opacity-50' : ''}`}
-                >
-                  <iconify-icon icon={isSyncing ? "lucide:refresh-cw" : "lucide:file-up"} className="text-lg" />
-                </button>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isSyncing ? 'Syncing...' : 'Sheet Sync'}</span>
-              </div>
             </div>
             <div className="glass-card rounded-3xl p-6 space-y-5">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2"><iconify-icon icon="lucide:user-plus" className="text-blue-500" /> Add New Player</h3>
@@ -331,7 +415,13 @@ const AdminSetup: React.FC = () => {
                 <div key={p.id} className="glass-card rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500"><iconify-icon icon="lucide:user" /></div>
-                    <div><p className="text-sm font-bold text-white">{p.name}</p><p className="text-[10px] text-slate-400">{p.profile} • {data.categories.find(c => c.id === p.categoryId)?.name}</p></div>
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        <span className="text-blue-400 mr-2 font-display">#{p.id}</span>
+                        {p.name}
+                      </p>
+                      <p className="text-[10px] text-slate-400">{p.profile} • {data.categories.find(c => c.id === p.categoryId)?.name}</p>
+                    </div>
                   </div>
                   <button onClick={() => deletePlayer(p.id)} className="w-8 h-8 rounded-lg bg-white/5 text-slate-400 hover:text-red-400"><iconify-icon icon="lucide:trash-2" /></button>
                 </div>

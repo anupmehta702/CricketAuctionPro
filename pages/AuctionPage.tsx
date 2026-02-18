@@ -8,11 +8,12 @@ import BottomNav from '../components/BottomNav';
 const AuctionPage: React.FC = () => {
   const { tournamentId, playerId } = useParams<{ tournamentId: string, playerId: string }>();
   const navigate = useNavigate();
-  const { getTournamentData, placeBid, finalizePlayer, bids, categories, players } = useAuction();
+  const { getTournamentData, placeBid, finalizePlayer, bids, categories, players, isSyncing } = useAuction();
 
   const data = getTournamentData(tournamentId || '');
   const [selectedBidTeam, setSelectedBidTeam] = useState<string>('');
   const [bidAmount, setBidAmount] = useState<number>(0);
+  const [localSyncing, setLocalSyncing] = useState(false);
 
   const currentPlayer = players.find(p => p.id === playerId);
   const playerCategory = categories.find(c => c.id === currentPlayer?.categoryId);
@@ -44,14 +45,18 @@ const AuctionPage: React.FC = () => {
     if (error) alert(error);
   };
 
-  const handleSold = () => {
+  const handleSold = async () => {
     if (!currentHighestBid) return alert("No bids have been placed for this player yet!");
-    finalizePlayer(currentPlayer.id, PlayerStatus.SOLD, currentHighestBid.teamId, currentHighestBid.amount);
+    setLocalSyncing(true);
+    await finalizePlayer(currentPlayer.id, PlayerStatus.SOLD, currentHighestBid.teamId, currentHighestBid.amount);
+    setLocalSyncing(false);
     navigate(`/selection/${tournamentId}`);
   };
 
-  const handleUnsold = () => {
-    finalizePlayer(currentPlayer.id, PlayerStatus.UNSOLD);
+  const handleUnsold = async () => {
+    setLocalSyncing(true);
+    await finalizePlayer(currentPlayer.id, PlayerStatus.UNSOLD);
+    setLocalSyncing(false);
     navigate(`/selection/${tournamentId}`);
   };
 
@@ -63,12 +68,21 @@ const AuctionPage: React.FC = () => {
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <h1 className="text-lg font-bold font-display tracking-tight uppercase">Live Auction</h1>
         </div>
-        <div className="bg-blue-600/10 border border-blue-500/20 px-3 py-1 rounded-full">
-          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{data.tournament.name}</span>
+        
+        <div className="flex items-center gap-2">
+          {isSyncing && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-500 uppercase">
+              <iconify-icon icon="lucide:refresh-cw" className="animate-spin" />
+              Syncing Sheet...
+            </div>
+          )}
+          <div className="bg-blue-600/10 border border-blue-500/20 px-3 py-1 rounded-full">
+            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{data.tournament.name}</span>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-8 no-scrollbar pb-40">
+      <main className={`flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-8 no-scrollbar pb-40 transition-opacity ${localSyncing ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         
         {/* SECTION 1: Current Player Card */}
         <section className="flex flex-col gap-3">
@@ -96,7 +110,9 @@ const AuctionPage: React.FC = () => {
                     <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wider">{currentPlayer.profile}</span>
                   </div>
                   <h2 className="text-4xl font-bold font-display leading-none mb-1 tracking-tight">{currentPlayer.name}</h2>
-                  <p className="text-slate-400 text-sm font-medium tracking-wide">ID: #T{currentPlayer.id.slice(-4).toUpperCase()}</p>
+                  <p className="text-slate-400 text-sm font-medium tracking-wide">
+                    ID: <span className="text-blue-500 font-bold">#{currentPlayer.sheetId || currentPlayer.id.slice(-4).toUpperCase()}</span>
+                  </p>
                 </div>
                 
                 <div className="mt-6 flex items-end justify-between">
@@ -219,16 +235,19 @@ const AuctionPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-4 pb-12">
             <button 
               onClick={handleSold}
-              disabled={!currentHighestBid}
+              disabled={!currentHighestBid || localSyncing}
               className="py-6 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 disabled:grayscale rounded-[1.5rem] font-bold font-display text-lg uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-emerald-900/20 transition-all active:scale-95 border border-emerald-400/20"
             >
-              <iconify-icon icon="lucide:check-circle" className="text-2xl" /> SOLD
+              <iconify-icon icon={localSyncing ? "lucide:refresh-cw" : "lucide:check-circle"} className={`text-2xl ${localSyncing ? 'animate-spin' : ''}`} /> 
+              {localSyncing ? 'SYNCING...' : 'SOLD'}
             </button>
             <button 
               onClick={handleUnsold}
-              className="py-6 bg-rose-600 hover:bg-rose-500 rounded-[1.5rem] font-bold font-display text-lg uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-rose-900/20 transition-all active:scale-95 border border-rose-400/20"
+              disabled={localSyncing}
+              className="py-6 bg-rose-600 hover:bg-rose-500 disabled:opacity-20 disabled:grayscale rounded-[1.5rem] font-bold font-display text-lg uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-rose-900/20 transition-all active:scale-95 border border-rose-400/20"
             >
-              <iconify-icon icon="lucide:x-circle" className="text-2xl" /> UNSOLD
+              <iconify-icon icon={localSyncing ? "lucide:refresh-cw" : "lucide:x-circle"} className={`text-2xl ${localSyncing ? 'animate-spin' : ''}`} /> 
+              {localSyncing ? 'SYNCING...' : 'UNSOLD'}
             </button>
           </div>
         </section>
