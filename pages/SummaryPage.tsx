@@ -2,32 +2,26 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
-import { PlayerStatus } from '../types';
+import { PlayerStatus, Team,FetchedPlayer,Player } from '../types';
 import BottomNav from '../components/BottomNav';
 
 declare const XLSX: any;
 
-interface FetchedTeam {
-  id: string;
-  name: string;
-  owner: string;
-  purse: number;
-}
 
-interface FetchedPlayer {
-  [key: string]: any;
-}
+
+
 
 const SummaryPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const { getTournamentData, sheetUrl } = useAuction();
+  const { getTournamentData, sheetUrl, updateUrl,getPlayersTeamWiseFromAPI,getTeamsFromSheetAPI } = useAuction();
   const data = getTournamentData(tournamentId || '');
-
-  const [fetchedTeams, setFetchedTeams] = useState<FetchedTeam[]>([]);
+  const [fetchedTeams, setFetchedTeams] = useState<Team[]>([]);
   const [teamPlayers, setTeamPlayers] = useState<Record<string, FetchedPlayer[]>>({});
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+ 
 
   const getExportUrl = (url: string) => {
     try {
@@ -45,94 +39,23 @@ const SummaryPage: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      try {
-        // 1. Get all teams from google sheet
-        const exportUrl = getExportUrl(sheetUrl);
-        const response = await fetch(exportUrl);
-        if (!response.ok) throw new Error('Failed to fetch teams from Google Sheet');
+      try {        
+           // 1. Get all teams from web API
+          const teams = await getTeamsFromSheetAPI();
         
-        const arrayBuffer = await response.arrayBuffer();
-        const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+          // 2. For each teamId, hit the API to get players and team details
+          let playersMap: Record<string, Player[]> = {};
+          const updatedTeamsMap: Record<string, Team & { spent?: number, remaining?: number }> = {};
         
-        const teamSheetName = wb.SheetNames.find((name: string) => name.toLowerCase() === 'teams');
-        if (!teamSheetName) throw new Error('Teams sheet not found');
+          await Promise.all(teams.map(async (team) => {
+            //get team wise player details from Web api
+            playersMap[team.id] = await getPlayersTeamWiseFromAPI(team.id,team.tournamentId); 
         
-        const teamRows = XLSX.utils.sheet_to_json(wb.Sheets[teamSheetName]);
-        const teams: FetchedTeam[] = teamRows.map((row: any, idx: number) => ({
-          id: (row['Team ID'] || row['Team id'] || row['ID'] || `team-${idx}`).toString(),
-          name: (row['Team Name'] || row['team name'] || 'Unknown Team').toString(),
-          owner: (row['Team owner'] || row['Team Owner'] || 'N/A').toString(),
-          purse: parseFloat(row['Purse'] || row['purse'] || '100'),
-        }));
-
-        // 2. For each teamId, hit the API to get players and team details
-        const playersMap: Record<string, FetchedPlayer[]> = {};
-        const updatedTeamsMap: Record<string, FetchedTeam & { spent?: number, remaining?: number }> = {};
-        
-        await Promise.all(teams.map(async (team) => {
-          try {
-            const baseUrl = 'https://script.google.com/macros/s/AKfycbzkHuSiliH9DChJZThUPWHt4YmZHqbaLhSSiKfDdzNFpIzgx5qP3rUsvh2O14b1FO4JQg/exec';
-            const params = new URLSearchParams({
-              teamId: team.id,
-              team: team.id
-            });
-            const url = `${baseUrl}?${params.toString()}`;
-            
-            console.log(`Fetching data for team ${team.id} from: ${url}`);
-            
-            const playerRes = await fetch(url);
-            if (playerRes.ok) {
-              const responseData = await playerRes.json();
-              console.log(`Data for team ${team.id}:`, responseData);
-              
-              let players: FetchedPlayer[] = [];
-              let teamInfo: any = {};
-
-              if (Array.isArray(responseData)) {
-                players = responseData;
-              } else if (responseData && typeof responseData === 'object') {
-                players = responseData.players || responseData.data || responseData.items || [];
-                teamInfo = responseData.team || responseData.teamInfo || responseData.teamDetails || {};
-                
-                if (players.length === 0 && !responseData.team && Object.keys(responseData).length > 0) {
-                   const values = Object.values(responseData);
-                   if (values.every(v => v && typeof v === 'object')) {
-                     players = values as FetchedPlayer[];
-                   }
-                }
-              }
-
-              playersMap[team.id] = players;
-              
-              // Calculate spent from players if not provided by API
-              let spent = teamInfo.spent !== undefined ? parseFloat(teamInfo.spent) : 0;
-              if (spent === 0 && players.length > 0) {
-                players.forEach(p => {
-                  const price = parseFloat(p['Price'] || p['price'] || p['Sold Price'] || p['sold price'] || p['Amount'] || p['amount'] || 0);
-                  spent += price;
-                });
-              }
-
-              const totalPurse = teamInfo.purse !== undefined ? parseFloat(teamInfo.purse) : team.purse;
-              const remaining = teamInfo.remaining !== undefined ? parseFloat(teamInfo.remaining) : (totalPurse - spent);
-
-              updatedTeamsMap[team.id] = {
-                ...team,
-                name: teamInfo.name || team.name,
-                owner: teamInfo.owner || team.owner,
-                purse: totalPurse,
-                spent: parseFloat(spent.toFixed(2)),
-                remaining: parseFloat(remaining.toFixed(2))
-              };
-            } else {
-              playersMap[team.id] = [];
-              updatedTeamsMap[team.id] = { ...team, spent: 0, remaining: team.purse };
-            }
-          } catch (err) {
-            console.error(`Fetch error for team ${team.id}:`, err);
-            playersMap[team.id] = [];
-            updatedTeamsMap[team.id] = { ...team, spent: 0, remaining: team.purse };
-          }
+            updatedTeamsMap[team.id] = {
+              ...team,
+              spent: team.purse - (team.remainingPurse ?? 0),
+              remaining: (team.remainingPurse ?? 0)
+            }          
         }));
 
         const finalTeams = teams.map(t => updatedTeamsMap[t.id] || { ...t, spent: 0, remaining: t.purse });

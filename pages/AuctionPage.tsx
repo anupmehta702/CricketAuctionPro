@@ -4,12 +4,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerStatus, Bid, Team } from '../types';
 import BottomNav from '../components/BottomNav';
+import { json } from 'stream/consumers';
 
 const AuctionPage: React.FC = () => {
   const { tournamentId, playerId } = useParams<{ tournamentId: string, playerId: string }>();
   const navigate = useNavigate();
   const { getTournamentData, placeBid, finalizePlayer, bids, categories, players, isSyncing } = useAuction();
-
   const data = getTournamentData(tournamentId || '');
   const [selectedBidTeam, setSelectedBidTeam] = useState<string>('');
   const [bidAmount, setBidAmount] = useState<number>(0);

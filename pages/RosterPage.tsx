@@ -1,4 +1,4 @@
-
+/* SQUADS PAGE: Displays the roster of the selected team */
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';

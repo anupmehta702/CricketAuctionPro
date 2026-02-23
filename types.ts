@@ -61,6 +61,10 @@ export interface Category {
   basePrice: number;
 }
 
+export interface FetchedPlayer {
+  [key: string]: any;
+}
+
 export interface Player {
   id: string;
   sheetId?: string;

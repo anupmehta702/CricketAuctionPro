@@ -16,9 +16,13 @@ const AdminSetup: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId?: string }>();
   const navigate = useNavigate();
   const { 
-    addTournament, updateTournament, getTournamentData, updateUrl, setUpdateUrl,
-    sheetUrl, setSheetUrl,
-    addTeam, bulkAddTeams, deleteTeam, addCategory, bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer 
+    addTournament, updateTournament, getTournamentData, updateUrl, setUpdateUrl
+    ,sheetUrl, setSheetUrl,addTeam, bulkAddTeams, deleteTeam, addCategory
+    ,bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer
+    ,getTeamsFromSheetAPI,
+    getTournamentDetailsFromAPI , 
+    getCategoriesDetailsFromAPI,
+    getPlayersFromSheetAPI
   } = useAuction();
 
   const [activeStep, setActiveStep] = useState<Step>(Step.TOURNAMENT);
@@ -26,7 +30,7 @@ const AdminSetup: React.FC = () => {
   
   const data = getTournamentData(tournamentId || '');
 
-  const [tournamentForm, setTournamentForm] = useState({
+  const [tournamentForm, setTournamentForm] = useState({id:'0',
     name: '', venue: '', auctionDate: '', numberOfTeams: 8, playersPerTeam: 15
   });
   const [teamForm, setTeamForm] = useState({ name: '', owner: '', purse: 100 });
@@ -38,6 +42,7 @@ const AdminSetup: React.FC = () => {
   useEffect(() => {
     if (data.tournament) {
       setTournamentForm({
+        id: data.tournament.id,
         name: data.tournament.name,
         venue: data.tournament.venue,
         auctionDate: data.tournament.auctionDate,
@@ -48,6 +53,7 @@ const AdminSetup: React.FC = () => {
   }, [data.tournament]);
 
   const handleTournamentSubmit = (e: React.FormEvent) => {
+    //console.log("in Handle Tournament submit -->"+tournamentId)
     e.preventDefault();
     if (tournamentId) {
       updateTournament({ ...tournamentForm, id: tournamentId });
@@ -83,29 +89,19 @@ const AdminSetup: React.FC = () => {
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
       
       // 1. TOURNAMENT DETAILS
-      const tSheet = wb.SheetNames.find((name: string) => name.toLowerCase().replace(/\s/g, '') === 'tournamentdetails');
+      let tournamentMap = await getTournamentDetailsFromAPI(tournamentId);
       let currentTid = tournamentId;
-      if (tSheet) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[tSheet]);
-        if (rows.length > 0) {
-          const row: any = rows[0];
-          const tData = {
-            name: (row['name'] || row['Name'] || 'New Tournament').toString(),
-            venue: (row['place'] || row['Place'] || 'Unknown Venue').toString(),
-            auctionDate: new Date().toISOString().split('T')[0],
-            numberOfTeams: parseInt(row['No. of teams'] || row['no. of teams'] || '8'),
-            playersPerTeam: parseInt(row['Players per team'] || row['players per team'] || '15'),
-            sheetId: (row['tournament ID'] || row['tournament id'] || '').toString()
-          };
-          if (!currentTid) {
-            const newT = addTournament(tData);
-            currentTid = newT.id;
+      if(tournamentMap.length > 0) {
+        tournamentMap.map((tournament) => {
+          const newT = addTournament(tournament);            
+          currentTid = newT.id;
+          if(!tournamentId){
             navigate(`/admin/${newT.id}`);
-          } else {
-            updateTournament({ ...tData, id: currentTid });
-          }
-        }
-      }
+          }                        
+        });  
+      } else {
+        console.log("No tournament details found !");
+      }      
 
       if (!currentTid) {
         alert("Tournament details not found in sheet.");
@@ -117,47 +113,26 @@ const AdminSetup: React.FC = () => {
 
       // 2. CATEGORIES
       const categoryMap = new Map<string, string>(); // name -> spreadsheetId
-      const cSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'categories');
-      if (cSheet) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[cSheet]);
-        const catsToAdd = rows.map((row: any, idx: number) => {
-          const sheetCatId = (row['Category ID'] || row['category id'] || row['ID'] || '').toString();
-          const finalId = sheetCatId || `cat-${now}-${idx}`;
-          const catName = (row['Category Name'] || row['Category name'] || 'General').toString();
-          categoryMap.set(catName.toLowerCase().trim(), finalId);
-          return {
-            id: finalId,
-            tournamentId: currentTid!,
-            name: catName,
-            basePrice: parseFloat(row['Base Price'] || row['base price'] || '0'),
-            sheetId: sheetCatId
-          };
-        });
-        if (catsToAdd.length > 0) bulkAddCategories(currentTid, catsToAdd);
-      }
+      const catsToAdd = await getCategoriesDetailsFromAPI(tournamentId);
+      if (catsToAdd.length > 0) 
+        bulkAddCategories(currentTid, catsToAdd);  
 
-      // 3. TEAMS
-      const teamSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'teams');
-      if (teamSheet) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[teamSheet]);
-        const teamsToAdd = rows.map((row: any, idx: number) => {
-          const sheetTeamId = (row['Team ID'] || row['Team id'] || row['ID'] || '').toString();
-          return {
-            id: sheetTeamId || `team-${now}-${idx}`,
-            tournamentId: currentTid!,
-            name: (row['Team Name'] || row['team name'] || 'Team').toString(),
-            owner: (row['Team owner'] || row['Team Owner'] || 'N/A').toString(),
-            purse: parseFloat(row['Purse'] || row['purse'] || '100'),
-            sheetId: sheetTeamId
-          };
-        });
-        if (teamsToAdd.length > 0) bulkAddTeams(currentTid, teamsToAdd);
+      //3.Teams 
+      const teamsToAdd = await getTeamsFromSheetAPI();
+      if (teamsToAdd.length > 0)
+         bulkAddTeams(currentTid, teamsToAdd);
+      
+      // 4. PLAYERS (Sheet1)      
+      const playersToAdd = (await getPlayersFromSheetAPI(currentTid));
+      //.filter(p => p.name !== 'Unknown Player');
+      if (playersToAdd.length > 0) {
+        bulkAddPlayers(currentTid, playersToAdd);        
       }
-
-      // 4. PLAYERS (Sheet1)
-      const pSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'sheet1');
+      
+      /*const pSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'sheet1');
       if (pSheet) {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[pSheet]);
+        //rows should get valiue from
         const playersToAdd = rows.map((row: any, idx: number) => {
           const catNameFromSheet = (row['Category'] || row['category'] || '').toString().toLowerCase().trim();
           const categoryId = categoryMap.get(catNameFromSheet) || '';
@@ -179,6 +154,8 @@ const AdminSetup: React.FC = () => {
             tournamentId: currentTid!,
             sheetId: sheetPlayerId,
             name: (row['Full Name'] || row['full name'] || 'Unknown Player').toString(),
+            soldToTeamId: (row['Team'] || row['team']),
+            soldPrice: Number(row['price'] || 0),
             mobileNumber: '',
             categoryId,
             profile,
@@ -187,8 +164,8 @@ const AdminSetup: React.FC = () => {
           };
         }).filter(p => p.name !== 'Unknown Player');
 
-        if (playersToAdd.length > 0) bulkAddPlayers(currentTid, playersToAdd);
-      }
+        if (playersToAdd.length > 0) bulkAddPlayers(currentTid, playersToAdd);        
+      }*/
 
       alert("Master Sync Complete! Tournament details, Teams, Categories, and Players imported.");
     } catch (err) {
