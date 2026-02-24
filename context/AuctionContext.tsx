@@ -23,7 +23,7 @@ interface AuctionContextType {
   addCategory: (c: Omit<Category, 'id'>) => void;
   bulkAddCategories: (tournamentId: string, cs: (Omit<Category, 'id'> & { id?: string })[]) => void;
   deleteCategory: (id: string) => void;
-  addPlayer: (p: Omit<Player, 'id' | 'status'>) => void;
+  addPlayer: (p: Omit<Player,'id'>) => void;
   // Fix: Included status as an optional property in the input type for bulkAddPlayers
   bulkAddPlayers: (tournamentId: string, ps: Player[]) => void;
   deletePlayer: (id: string) => void;
@@ -279,11 +279,14 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteCategory = (id: string) => setCategories(prev => prev.filter(c => c.id !== id));
 
-  const addPlayer = (p: Omit<Player, 'id' | 'status'>) => {
+  const addPlayer = (p: Omit<Player,'id'>) => {
     const newPlayer: Player = { ...p, 
       //id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, 
       id:Math.floor(1000 + Math.random() * 9000).toString(),
-      status: PlayerStatus.AVAILABLE };
+      status: PlayerStatus.AVAILABLE,
+      soldToTeamId: p.soldToTeamId || '',
+      soldPrice: p.soldPrice || 0
+    };
       addPlayerToSheet(newPlayer);
     setPlayers(prev => [...prev, newPlayer]);
   };
@@ -295,6 +298,9 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newPlayers: Player[] = ps.map((p, idx) => ({
       ...p,
       id: p.id || `${now}-${idx}`,
+      soldToTeamId: p.soldToTeamId,
+      soldPrice: p.soldPrice,
+      status: p.status
       
     }));
     console.log("bulkAddAPlayers called for size of newPlayers -->"+newPlayers.length)
@@ -358,6 +364,13 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (sheetStatusRaw === 'SOLD') status = PlayerStatus.SOLD;
         if (sheetStatusRaw === 'UNSOLD') status = PlayerStatus.UNSOLD;
 
+        const soldToTeam = (row['Team'] || row['team'] || '').toString();
+        let matchedTeamId = '';
+          const matchedTeam = teams.find((t: any) => t.name === (soldToTeam));
+          if (matchedTeam) matchedTeamId = matchedTeam.id;
+
+
+
         return {
           id: sheetPlayerId || `player-${now}-${idx}`,
           tournamentId: tournamentId,
@@ -367,7 +380,9 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           categoryId,
           profile,
           imageUrl: '',
-          status
+          status,
+          soldToTeamId : matchedTeamId,
+          soldPrice : (row['price'] || row['Price'] || 0)
         };
       }).filter(p => p.name !== 'Unknown Player');
 
@@ -437,7 +452,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           }
         } //elseIF
-        setPlayers(players);
+        //setPlayers(players); // this unecessarily corrupts localstorage (au_players) by storing only players per team
         return players;
 
       }// if (response.ok) 
@@ -478,7 +493,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         purse: parseFloat(team.purse || team.Purse || team.purse || '100'),
         remainingPurse : parseFloat(team['Remaining Purse value'] || team['remaining purse value'] || '100'),
         tournamentId:(team.tournamentId || team['tournamentId'] || team['tournamentID'] || '1').toString(),
-        playersCount: parseInt(team.Players || team.players || team.playersCount || '6')
+        playersCount: parseInt(team.Players || team.players || team.playersCount || '0')
       }));
     } else if (responseData && typeof responseData === 'object') {
       // Handle object with teams array
@@ -490,7 +505,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         purse: parseFloat(team.purse || team.Purse || team.purse || '100'),
         remainingPurse : parseFloat(team['Remaining Purse value'] || team['remaining purse value'] || '100'),
         tournamentId:(team.tournamentId|| team['tournamentId']|| team['tournamentID']|| '1').toString(),
-        playersCount: parseInt(team.Players || team.players || team.playersCount || '6')
+        playersCount: parseInt(team.Players || team.players || team.playersCount || '0')
       }));
     }
 
@@ -544,11 +559,16 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (player.status === 'SOLD') status = PlayerStatus.SOLD;
           if (player.status === 'UNSOLD') status = PlayerStatus.UNSOLD;
 
+          // set teamId 
+          let matchedTeamId = '';
+          const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
+          if (matchedTeam) matchedTeamId = matchedTeam.id;
+
           let responsePlayer : Player = {  
           id: (player.id || player['ID'] || `player-${idx}`).toString(),
           name: (player.name || player['Full Name'] || player['full name'] || 'Unknown Player').toString(),
           soldPrice: parseFloat(player.price || player.soldPrice || '0'),
-          soldToTeamId: (player.teamId || player['Team'] || player['teamId'] || ''),
+          soldToTeamId: matchedTeamId,
           status: status,
           profile: profile,
           categoryId: (player.categoryId || player['categoryId'] || ''),
@@ -574,13 +594,21 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           let status = PlayerStatus.AVAILABLE;
           if (player.status === 'SOLD') status = PlayerStatus.SOLD;
           if (player.status === 'UNSOLD') status = PlayerStatus.UNSOLD;
-
+          
+          
+          // set teamId 
+          let matchedTeamId = '';
+          const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
+          if (matchedTeam) matchedTeamId = matchedTeam.id;
+          
+          //console.log(`Player ${player['Full Name']} , sold to team - ${(player['Team'] || player.team)}, teamId - ${matchedTeamId}`)
+          
           let responsePlayer: Player = {
           
           id: (player.id || player['ID'] || `player-${idx}`).toString(),
           name: (player.name || player['Full Name'] || player['full name'] || 'Unknown Player').toString(),
           soldPrice: parseFloat(player.price || player.soldPrice || '0'),
-          soldToTeamId: (player.teamId || player['Team'] || player['teamId'] || ''),
+          soldToTeamId: matchedTeamId,
           status,
           profile,
           categoryId: (player.categoryId || player['categoryId'] || ''),

@@ -36,7 +36,9 @@ const AdminSetup: React.FC = () => {
   const [teamForm, setTeamForm] = useState({ name: '', owner: '', purse: 100 });
   const [categoryForm, setCategoryForm] = useState({ name: '', basePrice: 2 });
   const [playerForm, setPlayerForm] = useState({
-    name: '', mobileNumber: '', categoryId: '', profile: PlayerProfile.BATSMAN, imageUrl: ''
+    name: '', mobileNumber: '', categoryId: '', profile: PlayerProfile.BATSMAN, imageUrl: '',
+    soldToTeamId: '', soldPrice: 0, status:PlayerStatus.AVAILABLE
+
   });
 
   useEffect(() => {

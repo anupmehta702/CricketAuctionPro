@@ -35,21 +35,68 @@ const SummaryPage: React.FC = () => {
     }
   };
 
+  // Function to load live data from API
+  const getDataFromAPI = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Get all teams from web API
+      const teams = await getTeamsFromSheetAPI();
+
+      // 2. For each teamId, hit the API to get players and team details
+      let playersMap: Record<string, Player[]> = {};
+      const updatedTeamsMap: Record<string, Team & { spent?: number, remaining?: number }> = {};
+
+      await Promise.all(teams.map(async (team) => {
+        //get team wise player details from Web api
+        playersMap[team.id] = await getPlayersTeamWiseFromAPI(team.id, team.tournamentId);
+
+        updatedTeamsMap[team.id] = {
+          ...team,
+          spent: team.purse - (team.remainingPurse ?? 0),
+          remaining: (team.remainingPurse ?? 0)
+        };
+      }));
+
+      const finalTeams = teams.map(t => updatedTeamsMap[t.id] || { ...t, spent: 0, remaining: t.purse });
+      setFetchedTeams(finalTeams);
+      setTeamPlayers(playersMap);
+      if (finalTeams.length > 0) setActiveTeamId(finalTeams[0].id);
+    } catch (err: any) {
+      console.error('getDataFromAPI error:', err);
+      setError(err.message || 'An error occurred while fetching API data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {        
-           // 1. Get all teams from web API
-          const teams = await getTeamsFromSheetAPI();
+           // 1. Get all teams from local storage
+          const teams = data.teams;//await getTeamsFromSheetAPI();
         
-          // 2. For each teamId, hit the API to get players and team details
+          // 2. For each teamId,  get players and team details
           let playersMap: Record<string, Player[]> = {};
           const updatedTeamsMap: Record<string, Team & { spent?: number, remaining?: number }> = {};
         
+          //get team wise player details from local storage
           await Promise.all(teams.map(async (team) => {
-            //get team wise player details from Web api
-            playersMap[team.id] = await getPlayersTeamWiseFromAPI(team.id,team.tournamentId); 
+            
+            //add category name to Players
+            const players : Player[] = data.players.filter(player => player.soldToTeamId === team.id);
+            players.map((player)=> {
+               let category = data.categories.find(cat => cat.id === player.categoryId);              
+              if (category) {
+                player.category = category.name;
+              }
+              return player;
+            });  
+
+            playersMap[team.id] = data.players.filter(player => player.soldToTeamId === team.id)//await getPlayersTeamWiseFromAPI(team.id,team.tournamentId); 
         
             updatedTeamsMap[team.id] = {
               ...team,
@@ -95,7 +142,15 @@ const SummaryPage: React.FC = () => {
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20">
             <span className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
             <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
-              {loading ? 'Syncing...' : 'Live Data'}
+              <button
+                onClick={getDataFromAPI}
+                className="px-2 py-0.5 rounded hover:bg-blue-500/20 transition-colors focus:outline-none"
+                type="button"
+                disabled={loading}
+                title="Refresh Data"
+              >
+                {loading ? 'Syncing...' : 'Live Data'}
+              </button>
             </span>
           </div>
         </div>
@@ -173,7 +228,7 @@ const SummaryPage: React.FC = () => {
               </div>
               <div className="text-right">
                 <p className="text-[10px] text-slate-500 uppercase font-bold">Squad Size</p>
-                <p className="text-lg font-bold text-blue-400">{activePlayers.length}</p>
+                <p className="text-lg font-bold text-blue-400">{activePlayers.length} / {data.tournament.playersPerTeam}</p>
               </div>
             </div>
 
@@ -183,7 +238,7 @@ const SummaryPage: React.FC = () => {
                 activePlayers.map((player, idx) => {
                   // Try to find common fields from the API response
                   const playerName = player['fullName'] || player['Full Name'] || player['Name'] || player['name'] || player['Player Name'] || 'Unknown Player';
-                  const playerPrice = player['Price'] || player['price'] || player['Sold Price'] || player['sold price'] || player['Amount'] || player['amount'] || '0';
+                  const playerPrice = player['soldPrice'] || player['Sold Price'] || player['price'] || player['Amount'] || player['amount'] || '0';
                   const playerProfile = player['Profile'] || player['profile'] || player['Role'] || player['role'] || '';
                   const playerCategory = player['Category'] || player['category'] || '';
                   const playerImage = player['Image'] || player['image'] || player['ImageUrl'] || player['imageUrl'] || '';
@@ -217,7 +272,7 @@ const SummaryPage: React.FC = () => {
                           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                             {Object.entries(player).map(([key, val]) => {
                               const lowerKey = key.toLowerCase(); 
-                              if (['fullname','name', 'full name', 'player name', 'price', 'sold price', 'amount', 'profile', 'role', 'category', 'image', 'imageurl', 'id', 'player id', 'team name', 'status', 'teamid'].includes(lowerKey)) return null;
+                              if (['team','tournamentid','sheetid','mobilenumber','categoryid','soldtoteamid','soldprice','fullname','name', 'full name', 'player name', 'price', 'sold price', 'amount', 'profile', 'role', 'category', 'image', 'imageurl', 'id', 'player id', 'team name', 'status', 'teamid'].includes(lowerKey)) return null;
                               return (
                                 <span key={key} className="text-[8px] text-slate-500 uppercase">
                                   <span className="font-bold">{key}:</span> {String(val)}

@@ -72,11 +72,12 @@ export interface Player {
   name: string;
   mobileNumber: string;
   categoryId: string;
+  category? : string;
   profile: PlayerProfile;
   imageUrl: string;
   status: PlayerStatus;
-  soldToTeamId?: string;
-  soldPrice?: number;
+  soldToTeamId: string;
+  soldPrice: number;
 }
 
 export interface Bid {
