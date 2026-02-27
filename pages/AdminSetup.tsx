@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerProfile, PlayerStatus } from '../types';
+import DefaultLogo from '../src/assets/default-logo.png';
+import teamsImages from '../src/assets/teams/index.js'
+import playersImages from '../src/assets/players/index.js'
 
 declare const XLSX: any;
 
@@ -28,18 +31,35 @@ const AdminSetup: React.FC = () => {
   const [activeStep, setActiveStep] = useState<Step>(Step.TOURNAMENT);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  const data = getTournamentData(tournamentId || '');
+  let data = getTournamentData(tournamentId || '');
 
   const [tournamentForm, setTournamentForm] = useState({id:'0',
     name: '', venue: '', auctionDate: '', numberOfTeams: 8, playersPerTeam: 15
   });
-  const [teamForm, setTeamForm] = useState({ name: '', owner: '', purse: 100 });
+  const [teamForm, setTeamForm] = useState({ name: '', owner: '', purse: 100, logo: '' });
   const [categoryForm, setCategoryForm] = useState({ name: '', basePrice: 2 });
   const [playerForm, setPlayerForm] = useState({
     name: '', mobileNumber: '', categoryId: '', profile: PlayerProfile.BATSMAN, imageUrl: '',
     soldToTeamId: '', soldPrice: 0, status:PlayerStatus.AVAILABLE
 
   });
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+
+        setTeamForm({ ...teamForm, logo: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const refreshData = () => {
+    //console.log("Refreshing data !!");
+    data = getTournamentData(tournamentId || '');    
+  }
 
   useEffect(() => {
     if (data.tournament) {
@@ -96,7 +116,7 @@ const AdminSetup: React.FC = () => {
       if(tournamentMap.length > 0) {
         tournamentMap.map((tournament) => {
           const newT = addTournament(tournament);            
-          currentTid = newT.id;
+          currentTid = newT.id;      
           if(!tournamentId){
             navigate(`/admin/${newT.id}`);
           }                        
@@ -115,12 +135,15 @@ const AdminSetup: React.FC = () => {
 
       // 2. CATEGORIES
       const categoryMap = new Map<string, string>(); // name -> spreadsheetId
-      const catsToAdd = await getCategoriesDetailsFromAPI(tournamentId);
+      const catsToAdd = await getCategoriesDetailsFromAPI(currentTid);
       if (catsToAdd.length > 0) 
         bulkAddCategories(currentTid, catsToAdd);  
 
       //3.Teams 
       const teamsToAdd = await getTeamsFromSheetAPI();
+      teamsToAdd.map((team) => {
+        console.log("printing the image name for teamId "+ team.id +" , image name -->"+teamsImages[team.logo]);        
+      })
       if (teamsToAdd.length > 0)
          bulkAddTeams(currentTid, teamsToAdd);
       
@@ -131,43 +154,6 @@ const AdminSetup: React.FC = () => {
         bulkAddPlayers(currentTid, playersToAdd);        
       }
       
-      /*const pSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'sheet1');
-      if (pSheet) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[pSheet]);
-        //rows should get valiue from
-        const playersToAdd = rows.map((row: any, idx: number) => {
-          const catNameFromSheet = (row['Category'] || row['category'] || '').toString().toLowerCase().trim();
-          const categoryId = categoryMap.get(catNameFromSheet) || '';
-          
-          let profile = PlayerProfile.BATSMAN;
-          const pStr = (row['Profile'] || row['profile'] || '').toString().toLowerCase();
-          if (pStr.includes('bowl')) profile = PlayerProfile.BOWLER;
-          else if (pStr.includes('all') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
-          else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
-
-          const sheetPlayerId = (row['id'] || row['ID'] || '').toString();
-          const sheetStatusRaw = (row['status'] || row['Status'] || 'AVAILABLE').toString().toUpperCase();
-          let status = PlayerStatus.AVAILABLE;
-          if (sheetStatusRaw === 'SOLD') status = PlayerStatus.SOLD;
-          if (sheetStatusRaw === 'UNSOLD') status = PlayerStatus.UNSOLD;
-
-          return {
-            id: sheetPlayerId || `player-${now}-${idx}`,
-            tournamentId: currentTid!,
-            sheetId: sheetPlayerId,
-            name: (row['Full Name'] || row['full name'] || 'Unknown Player').toString(),
-            soldToTeamId: (row['Team'] || row['team']),
-            soldPrice: Number(row['price'] || 0),
-            mobileNumber: '',
-            categoryId,
-            profile,
-            imageUrl: '',
-            status
-          };
-        }).filter(p => p.name !== 'Unknown Player');
-
-        if (playersToAdd.length > 0) bulkAddPlayers(currentTid, playersToAdd);        
-      }*/
 
       alert("Master Sync Complete! Tournament details, Teams, Categories, and Players imported.");
     } catch (err) {
@@ -197,7 +183,7 @@ const AdminSetup: React.FC = () => {
         <nav className="flex gap-6 overflow-x-auto no-scrollbar pt-1">
           <button onClick={() => setActiveStep(Step.TOURNAMENT)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.TOURNAMENT ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Tournament</button>
           <button onClick={() => tournamentId && setActiveStep(Step.TEAMS)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.TEAMS ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Teams</button>
-          <button onClick={() => tournamentId && setActiveStep(Step.CATEGORIES)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.CATEGORIES ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Categories</button>
+          <button onClick={() => tournamentId && setActiveStep(Step.CATEGORIES) && refreshData()} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.CATEGORIES ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Categories</button>
           <button onClick={() => tournamentId && setActiveStep(Step.PLAYERS)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.PLAYERS ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Players</button>
         </nav>
       </header>
@@ -285,7 +271,15 @@ const AdminSetup: React.FC = () => {
                 <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold uppercase">Step 2/4</span>
               </div>
             </div>
-            <form onSubmit={e => { e.preventDefault(); addTeam({ ...teamForm, tournamentId }); setTeamForm({ name: '', owner: '', purse: 100 }); }} className="glass-card p-5 rounded-3xl flex flex-col gap-5">
+            <form onSubmit={e => { e.preventDefault(); addTeam({ ...teamForm, tournamentId }); setTeamForm({ name: '', owner: '', purse: 100, logo: '' }); }} className="glass-card p-5 rounded-3xl flex flex-col gap-5">
+              <div className="flex items-center gap-4">
+                
+                <img src={ DefaultLogo} alt="Team Logo" className="w-24 h-24 rounded-2xl object-cover bg-white/10" />
+                <div className="flex flex-col gap-2 w-full">
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Team Logo</label>
+                  <input type="file" accept="image/*" onChange={handleLogoChange} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
+                </div>
+              </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Team Name</label>
                 <input type="text" required value={teamForm.name} onChange={e => setTeamForm({...teamForm, name: e.target.value})} placeholder="e.g. Mumbai Titans" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500/50 text-white" />
@@ -304,7 +298,7 @@ const AdminSetup: React.FC = () => {
               {data.teams.map(team => (
                 <div key={team.id} className="glass-card p-4 rounded-2xl flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 text-blue-500 font-bold italic text-lg">{team.name.substring(0,2).toUpperCase()}</div>
+                    <img src={teamsImages[team.logo] || DefaultLogo} alt={team.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
                     <div>
                       <h3 className="font-bold text-sm">
                         <span className="text-blue-400 mr-2 text-[10px]">#{team.id}</span>
@@ -393,6 +387,7 @@ const AdminSetup: React.FC = () => {
               {data.players.map(p => (
                 <div key={p.id} className="glass-card rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                  <img src={playersImages[p.imageUrl] || DefaultLogo} alt={p.name} className="w-10 h-10 rounded-full object-cover bg-white/10" />
                     <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500"><iconify-icon icon="lucide:user" /></div>
                     <div>
                       <p className="text-sm font-bold text-white">
@@ -425,7 +420,7 @@ const AdminSetup: React.FC = () => {
               <button onClick={() => setActiveStep(activeStep - 1)} className="text-slate-400 flex items-center gap-2 font-bold text-sm uppercase">
                 <iconify-icon icon="lucide:chevron-left" /> Back
               </button>
-              <button onClick={() => setActiveStep(activeStep + 1)} className="bg-blue-600 px-8 py-2.5 rounded-full text-white font-bold text-sm flex items-center gap-2 shadow-lg uppercase tracking-wider">
+              <button onClick={() => {refreshData(); setActiveStep(activeStep + 1);} } className="bg-blue-600 px-8 py-2.5 rounded-full text-white font-bold text-sm flex items-center gap-2 shadow-lg uppercase tracking-wider">
                 Next <iconify-icon icon="lucide:chevron-right" />
               </button>
             </div>

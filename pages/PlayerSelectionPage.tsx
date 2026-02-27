@@ -3,20 +3,41 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerStatus } from '../types';
 import BottomNav from '../components/BottomNav';
+import playersImages from '../src/assets/players/index.js'
 
 const PlayerSelectionPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const navigate = useNavigate();
-  const { getTournamentData, players, categories, isSyncing, refreshPlayersFromSheet } = useAuction();
+  const { getTournamentData, players, categories, isSyncing,
+     refreshPlayersFromSheet,getPlayersFromSheetAPI,bulkAddPlayers } = useAuction();
   const data = getTournamentData(tournamentId || '');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  //const [loading, setLoading] = useState(true);
 
   // Load from sheet on mount
   useEffect(() => {
     if (tournamentId) {
-      refreshPlayersFromSheet(tournamentId);
+      //refreshPlayersFromSheet(tournamentId); //not refreshing here because this causes unnecessary refresh
     }
   }, [tournamentId]);
+
+  const refreshPlayerData = async() =>{
+    try{
+      
+      if(tournamentId){
+        console.log("refreshing player data from API ")
+        const playersToAdd = await getPlayersFromSheetAPI(tournamentId);      
+        if (playersToAdd.length > 0) {
+          bulkAddPlayers(tournamentId, playersToAdd);        
+        }
+      }
+    } catch (err: any) {
+      console.error('getDataFromAPI error:', err);
+      //setError(err.message || 'An error occurred while fetching API data');
+    }
+    
+    
+  } 
 
   if (!data.tournament) return <div className="p-10 text-center">Tournament not found</div>;
 
@@ -38,8 +59,30 @@ const PlayerSelectionPage: React.FC = () => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">{displayPlayers.length} To Auction</span>
+        
+          <div className="flex items-center gap-2 px-3 py-1">        
+          {/* Live Data  */}
+          <div className = "flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20">
+            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400 ">
+              <button
+                onClick={refreshPlayerData}
+                // className="px-2 py-0.5 rounded hover:bg-blue-500/20 transition-colors focus:outline-none"
+                className = "text-[10px] font-bold uppercase tracking-widest text-blue-400"
+                type="button"
+                disabled={isSyncing}
+                title="Refresh Data"
+              >
+                {isSyncing ? 'Syncing...' : 'Live Data'}
+              </button>
+            </span>
+          </div>
+          {/* player count display */}
+          <div className = " flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
+              {displayPlayers.length} To Auction
+            </span>
+          </div>
           </div>
         </div>
         <p className="text-xs text-slate-400">Showing all Available and Unsold participants</p>
@@ -72,7 +115,7 @@ const PlayerSelectionPage: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-white/5 overflow-hidden">
                       {p.imageUrl ? (
-                        <img src={p.imageUrl} className="w-full h-full object-cover" alt={p.name} />
+                        <img src={playersImages[p.imageUrl]} className="w-full h-full object-cover" alt={p.name} />
                       ) : (
                         <iconify-icon icon="lucide:user" className="text-xl text-slate-600" />
                       )}

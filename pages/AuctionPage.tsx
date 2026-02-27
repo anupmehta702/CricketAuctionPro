@@ -5,11 +5,12 @@ import { useAuction } from '../context/AuctionContext';
 import { PlayerStatus, Bid, Team } from '../types';
 import BottomNav from '../components/BottomNav';
 import { json } from 'stream/consumers';
+import playersImages from '../src/assets/players/index.js'
 
 const AuctionPage: React.FC = () => {
   const { tournamentId, playerId } = useParams<{ tournamentId: string, playerId: string }>();
   const navigate = useNavigate();
-  const { getTournamentData, placeBid, finalizePlayer, bids, categories, players, isSyncing } = useAuction();
+  const { getTournamentData, placeBid, finalizePlayer, bids, categories, players, isSyncing, clearBids } = useAuction();
   const data = getTournamentData(tournamentId || '');
   const [selectedBidTeam, setSelectedBidTeam] = useState<string>('');
   const [bidAmount, setBidAmount] = useState<number>(0);
@@ -22,6 +23,10 @@ const AuctionPage: React.FC = () => {
     bids.filter(b => b.playerId === playerId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     [bids, playerId]
   );
+
+  useEffect(() => {
+    clearBids();
+  }, []);
   
   const currentHighestBid = playerBids[0];
   const nextMinBid = currentHighestBid ? currentHighestBid.amount + 0.1 : (playerCategory?.basePrice || 0);
@@ -96,7 +101,7 @@ const AuctionPage: React.FC = () => {
               {/* Player Image - Large & Card Style */}
               <div className="w-full md:w-40 h-48 md:h-40 rounded-3xl bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
                 {currentPlayer.imageUrl ? (
-                  <img src={currentPlayer.imageUrl} className="w-full h-full object-cover" alt={currentPlayer.name} />
+                  <img src={playersImages[currentPlayer.imageUrl]} className="w-full h-full object-cover" alt={currentPlayer.name} />
                 ) : (
                   <iconify-icon icon="lucide:user" className="text-6xl text-slate-700" />
                 )}
@@ -173,7 +178,9 @@ const AuctionPage: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Adjust Amount</span>
                 <div className="flex gap-2">
+                <button onClick={() => setBidAmount(prev => parseFloat((prev + 0.05).toFixed(2)))} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all">+5L</button>
                   <button onClick={() => setBidAmount(prev => parseFloat((prev + 0.1).toFixed(2)))} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all">+10L</button>
+                  <button onClick={() => setBidAmount(prev => parseFloat((prev + 0.25).toFixed(2)))} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all">+25L</button>
                   <button onClick={() => setBidAmount(prev => parseFloat((prev + 0.5).toFixed(2)))} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all">+50L</button>
                   <button onClick={() => setBidAmount(prev => parseFloat((prev + 1.0).toFixed(2)))} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all">+1Cr</button>
                 </div>

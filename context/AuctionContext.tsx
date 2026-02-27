@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Tournament, Team, Category, Player, Bid, PlayerStatus, PlayerProfile,FetchedPlayer } from '../types';
+import { stringify } from 'querystring';
 
 declare const XLSX: any;
 
@@ -41,12 +42,13 @@ interface AuctionContextType {
   getTournamentDetailsFromAPI:  (tournamentId:String) => Promise<Tournament[]>;
   getCategoriesDetailsFromAPI: (tournamentId:String) => Promise<Category[]>;
   getPlayersFromSheetAPI: (tournamentId: string) => Promise<Player[]>;
+  clearBids: () => void;
 }
 
 const AuctionContext = createContext<AuctionContextType | undefined>(undefined);
 
-const DEFAULT_UPDATE_URL = "https://script.google.com/macros/s/AKfycbzo2OJydwjr8AKr5HwL5yvbitEMDfCuJFUaS2rWy6T0Kq4ObxF23tcDO-oB2ztOXRUl/exec";
-const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ksl1ohIMI4hEHI7Lvu6I1oFs_vWEIBhwYVEQQFsZLo0/edit?gid=1278278349#gid=1278278349";
+const DEFAULT_UPDATE_URL = "https://script.google.com/macros/s/AKfycbyMwe8LcW6XsLdl_pKZvcL7o7aQjyAS7KYkvG3rZUJIJL8ATVAUjnTds5BMgtBa4TxkCA/exec";
+const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ksl1ohIMI4hEHI7Lvu6I1oFs_vWEIBhwYVEQQFsZLo0/edit?gid=0#gid=0";
 
 export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tournaments, setTournaments] = useState<Tournament[]>(() => {
@@ -128,8 +130,10 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...t, 
       id: Math.floor(8000 + Math.random() * 9000).toString(), 
       remainingPurse: t.purse, 
-      playersCount: 0 
+      playersCount: 0,
+      logo: t.logo || '' 
     };
+    console.log('Adding team with id -->'+ JSON.stringify(newTeam) )
     addTeamToSheet(newTeam)
     setTeams(prev => [...prev, newTeam]);
   };
@@ -199,7 +203,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         "Purse": team.purse,
         "Remaining Purse value": team.remainingPurse,
         "tournamentId": team.tournamentId,
-        "Players": team.playersCount || 0
+        "Players": team.playersCount || 0,
+        logo: team.logo
       };
       console.log("Team ADD URL -->" + targetUrl + " payload -->" + JSON.stringify(payload));
       const response = await fetch(targetUrl, {
@@ -262,19 +267,25 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  
+
 
 
   const bulkAddCategories = (tournamentId: string, cs: (Omit<Category, 'id'> & { id?: string })[]) => {
+    console.log("tournamentID in bulkAddCategories --> "+tournamentId);
     const now = Date.now();
     const newCategories: Category[] = cs.map((c, idx) => ({
       ...c,
-      id: c.id || `${now}-${idx}`
+      id: c.id || `${now}-${idx}`,
+      tournamentId: tournamentId
     }));
-    setCategories(prev => {
-      const otherTournamentCategories = prev.filter(c => c.tournamentId !== tournamentId);
-      return [...otherTournamentCategories, ...newCategories];
-    });
+    
+
+    console.log(`Adding ${newCategories.length} categories for tournamentId - ${tournamentId} in local storage` );
+    setCategories(newCategories);
+    // setCategories(prev => {
+    //   const otherTournamentCategories = prev.filter(c => c.tournamentId !== tournamentId);
+    //   return [...otherTournamentCategories, ...newCategories];
+    // });
   };
 
   const deleteCategory = (id: string) => setCategories(prev => prev.filter(c => c.id !== id));
@@ -303,7 +314,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       status: p.status
       
     }));
-    console.log("bulkAddAPlayers called for size of newPlayers -->"+newPlayers.length)
+    console.log("bulkAddAPlayers called for size of newPlayers -->"+newPlayers.length);
+    //console.log("newPLayers Data  -->"+JSON.stringify(newPlayers));
     //console.log(`tournamentID passed - ${tournamentId} for players - ${newPlayers}`)    
     
     
@@ -379,7 +391,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           mobileNumber: '',
           categoryId,
           profile,
-          imageUrl: '',
+          imageUrl: (row['imageUrl'] || ''),
           status,
           soldToTeamId : matchedTeamId,
           soldPrice : (row['price'] || row['Price'] || 0)
@@ -493,7 +505,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         purse: parseFloat(team.purse || team.Purse || team.purse || '100'),
         remainingPurse : parseFloat(team['Remaining Purse value'] || team['remaining purse value'] || '100'),
         tournamentId:(team.tournamentId || team['tournamentId'] || team['tournamentID'] || '1').toString(),
-        playersCount: parseInt(team.Players || team.players || team.playersCount || '0')
+        playersCount: parseInt(team.Players || team.players || team.playersCount || '0'),
+        logo: (team.logo || team['logo'] || '')
       }));
     } else if (responseData && typeof responseData === 'object') {
       // Handle object with teams array
@@ -505,7 +518,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         purse: parseFloat(team.purse || team.Purse || team.purse || '100'),
         remainingPurse : parseFloat(team['Remaining Purse value'] || team['remaining purse value'] || '100'),
         tournamentId:(team.tournamentId|| team['tournamentId']|| team['tournamentID']|| '1').toString(),
-        playersCount: parseInt(team.Players || team.players || team.playersCount || '0')
+        playersCount: parseInt(team.Players || team.players || team.playersCount || '0'),
+        logo: (team.logo || team['logo'] || '')
       }));
     }
 
@@ -526,10 +540,12 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const getPlayersFromSheetAPI = async () => {
+    
     if (!updateUrl) {
       throw new Error('updateUrl is not set');
     }
     try {
+      setIsSyncing(true);
       const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=getPlayers`;
       const response = await fetch(targetUrl, {
         method: 'GET',
@@ -539,12 +555,12 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       if (!response.ok) throw new Error('Failed to fetch players from API');
       const responseData = await response.json();
-      console.log('Players API response:', responseData);
+      //console.log('Players API response:', responseData);
 
       // Handle different response formats
       let players: Player[] = [];
       if (Array.isArray(responseData)) {
-        console.log("In Array.isArray(responseData)")
+        //console.log("In Array.isArray(responseData)")
         players = responseData.map((player: any, idx: number) => {
           console.log("in responseData.map -->"+JSON.stringify(player));  
           //set profile value
@@ -556,13 +572,17 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           //set status value 
           let status = PlayerStatus.AVAILABLE;
-          if (player.status === 'SOLD') status = PlayerStatus.SOLD;
-          if (player.status === 'UNSOLD') status = PlayerStatus.UNSOLD;
+          if (player.status === 'sold') status = PlayerStatus.SOLD;
+          if (player.status === 'unsold') status = PlayerStatus.UNSOLD;
 
           // set teamId 
           let matchedTeamId = '';
           const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
           if (matchedTeam) matchedTeamId = matchedTeam.id;
+
+          //set categoryId
+          const playerCategory = categories.find((cat:any) => cat.name === player['Category'])
+          const playerCategoryId = playerCategory.id;
 
           let responsePlayer : Player = {  
           id: (player.id || player['ID'] || `player-${idx}`).toString(),
@@ -571,11 +591,11 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           soldToTeamId: matchedTeamId,
           status: status,
           profile: profile,
-          categoryId: (player.categoryId || player['categoryId'] || ''),
+          categoryId: ( playerCategoryId || player.categoryId || player['categoryId'] || ''),
           tournamentId: (player.tournamentId || player['tournamentId'] || '').toString(),
           sheetId: player.sheetId || undefined,
           mobileNumber: player.mobileNumber || '',
-          imageUrl: player.imageUrl || '',
+          imageUrl: (player.imageUrl || player['imageUrl'] ||  ''),
           };
           console.log("reponse players -->"+JSON.stringify(responsePlayer))
           return responsePlayer;
@@ -590,16 +610,21 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           else if (pStr.includes('ll') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
           else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
 
-          //set status value 
+          //set status value         
           let status = PlayerStatus.AVAILABLE;
-          if (player.status === 'SOLD') status = PlayerStatus.SOLD;
-          if (player.status === 'UNSOLD') status = PlayerStatus.UNSOLD;
+          if (player['Status'] === 'sold') status = PlayerStatus.SOLD;
+          if (player['Status'] === 'unsold') status = PlayerStatus.UNSOLD;
           
           
           // set teamId 
           let matchedTeamId = '';
           const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
           if (matchedTeam) matchedTeamId = matchedTeam.id;
+          
+
+          //set categoryId
+          const playerCategory = categories.find((cat:any) => cat.name === player['Category'])
+          const playerCategoryId = playerCategory.id;
           
           //console.log(`Player ${player['Full Name']} , sold to team - ${(player['Team'] || player.team)}, teamId - ${matchedTeamId}`)
           
@@ -609,13 +634,13 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           name: (player.name || player['Full Name'] || player['full name'] || 'Unknown Player').toString(),
           soldPrice: parseFloat(player.price || player.soldPrice || '0'),
           soldToTeamId: matchedTeamId,
-          status,
+          status: status,
           profile,
-          categoryId: (player.categoryId || player['categoryId'] || ''),
+          categoryId: (playerCategoryId ||player.categoryId || player['categoryId'] || ''),
           tournamentId:  (player['tournamentId']).toString(),
           sheetId: player.sheetId || undefined,
           mobileNumber: player.mobileNumber || '',
-          imageUrl: player.imageUrl || '',
+          imageUrl: (player.imageUrl || player['imageUrl'] || ''),
           } //playerResponse
           return responsePlayer;
         });//map
@@ -625,7 +650,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw new Error('No players found in API response');
       }
       //setPlayers(players);
-      //console.log("final player list -->"+JSON.stringify(players));
+      //console.log("final player list from API -->"+JSON.stringify(players));
       return players;
     } catch (error: any) {
       console.error("Error while fetching players data from web api  -->" + error);
@@ -633,6 +658,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error('CORS Error:', error);        
       }
       throw error;
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -766,7 +793,7 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
         const cData: Category = {
           id: (row['Category ID'] || row['categoryID'] || row['category id'] || row['id']).toString(),
           sheetId: (row['sheetId'] || row['Sheet ID'] || row['sheet ID'] || '').toString(),
-          tournamentId: tournamentId,
+          tournamentId: (tournamentId || row['torunamentId'] || ''),
           name: (row['Category Name'] || row['categoryName'] || 'Unknown Category').toString(),
           basePrice : (row['Base Price'] || row['basePrice']|| 0)
         };
@@ -774,8 +801,12 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
       });
     }
   }
+  //setCategories(updatedCatMap);
   return updatedCatMap;
 };
+ const clearBids = () => {
+    setBids([]);
+  };
 
   return (
     <AuctionContext.Provider value={{
@@ -788,7 +819,8 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
       getPlayersTeamWiseFromAPI,
       getTournamentDetailsFromAPI,
       getCategoriesDetailsFromAPI,
-      getPlayersFromSheetAPI
+      getPlayersFromSheetAPI,
+      clearBids
     }}>
       {children}
     </AuctionContext.Provider>

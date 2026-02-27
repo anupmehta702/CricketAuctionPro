@@ -4,11 +4,11 @@ import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerStatus, Team,FetchedPlayer,Player } from '../types';
 import BottomNav from '../components/BottomNav';
+import DefaultLogo from '../src/assets/default-logo.png';
+import teamsImages from '../src/assets/teams/index.js'
+import playersImages from '../src/assets/players/index.js'
 
 declare const XLSX: any;
-
-
-
 
 
 const SummaryPage: React.FC = () => {
@@ -144,7 +144,7 @@ const SummaryPage: React.FC = () => {
             <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
               <button
                 onClick={getDataFromAPI}
-                className="px-2 py-0.5 rounded hover:bg-blue-500/20 transition-colors focus:outline-none"
+                className="px-2 py-0.5 uppercase rounded hover:bg-blue-500/20 transition-colors focus:outline-none"
                 type="button"
                 disabled={loading}
                 title="Refresh Data"
@@ -199,7 +199,7 @@ const SummaryPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="space-y-1">
                   <p className="text-[10px] text-slate-400 uppercase font-bold">Purse Spent</p>
-                  <p className="text-xl font-bold font-display text-white">₹{(activeTeam as any).spent || 0} <span className="text-xs font-normal opacity-60">Cr</span></p>
+                  <p className="text-xl font-bold font-display text-white">₹{(activeTeam as any).spent.toFixed(2) || 0} <span className="text-xs font-normal opacity-60">Cr</span></p>
                 </div>
                 <div className="space-y-1 text-right">
                   <p className="text-[10px] text-yellow-500 uppercase font-bold">Remaining</p>
@@ -219,10 +219,24 @@ const SummaryPage: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Team Header Info */}
-            <div className="flex justify-between items-end px-1">
-              <div>
+            {/* Team Header Card */}
+            <div key={activeTeam.id} className="p-4 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <img src={teamsImages[activeTeam.logo] || DefaultLogo} alt={activeTeam.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
+                <div>
+                <h2 className="text-xl font-bold font-display">{activeTeam.name}</h2>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Owner: {activeTeam.owner}</p>                                
+              </div>
+            </div>
+            <div className="flex items-center gap-4">              
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Squad Size</p>
+              <p className="text-lg font-bold text-blue-400">{activePlayers.length} / {data.tournament.playersPerTeam}</p>
+            </div>
+          </div>
+            {/* Team Details Card 
+            <div className="flex justify-between items-end px-1 gap-2">
+            <img src={activeTeam.logo || DefaultLogo} alt="Team Logo" className="w-12 h-12 rounded-2xl object-cover bg-white/10" />
+              <div className="text-left">                
                 <h2 className="text-xl font-bold font-display">{activeTeam.name}</h2>
                 <p className="text-[10px] text-slate-400 uppercase tracking-widest">Owner: {activeTeam.owner}</p>
               </div>
@@ -231,6 +245,7 @@ const SummaryPage: React.FC = () => {
                 <p className="text-lg font-bold text-blue-400">{activePlayers.length} / {data.tournament.playersPerTeam}</p>
               </div>
             </div>
+            */}
 
             {/* Players List (Card Layout) */}
             <div className="flex flex-col gap-3">
@@ -241,7 +256,7 @@ const SummaryPage: React.FC = () => {
                   const playerPrice = player['soldPrice'] || player['Sold Price'] || player['price'] || player['Amount'] || player['amount'] || '0';
                   const playerProfile = player['Profile'] || player['profile'] || player['Role'] || player['role'] || '';
                   const playerCategory = player['Category'] || player['category'] || '';
-                  const playerImage = player['Image'] || player['image'] || player['ImageUrl'] || player['imageUrl'] || '';
+                  const playerImage = player['ImageUrl'] || player['image'] || player['Image'] || player['imageUrl'] || '';
                   const playerId = player['ID'] || player['id'] || player['Player ID'] || '';
 
                   return (
@@ -252,7 +267,7 @@ const SummaryPage: React.FC = () => {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-white/5 overflow-hidden">
                           {playerImage ? (
-                            <img src={playerImage} className="w-full h-full object-cover" alt={playerName} />
+                            <img src={playersImages[playerImage]} className="w-full h-full object-cover" alt={playerName} />
                           ) : (
                             <iconify-icon icon="lucide:user" className="text-xl text-slate-600" />
                           )}

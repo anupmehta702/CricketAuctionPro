@@ -51,6 +51,7 @@ export interface Team {
   purse: number;
   remainingPurse: number;
   playersCount: number;
+  logo?: string;
 }
 
 export interface Category {

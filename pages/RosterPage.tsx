@@ -4,6 +4,8 @@ import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerStatus, PlayerProfile } from '../types';
 import BottomNav from '../components/BottomNav';
+import teamsImages from '../src/assets/teams/index.js'
+import playersImages from '../src/assets/players/index.js'
 
 const RosterPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -96,7 +98,7 @@ const RosterPage: React.FC = () => {
             teamRoster.map(p => (
               <div key={p.id} className="glass-card rounded-2xl p-4 flex gap-4 items-center group active:scale-[0.98] transition-all">
                 <div className="w-14 h-14 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center shrink-0 relative overflow-hidden">
-                  {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <iconify-icon icon="lucide:user" className="text-2xl text-slate-600" />}
+                  {p.imageUrl ? <img src={playersImages[p.imageUrl]} className="w-full h-full object-cover" /> : <iconify-icon icon="lucide:user" className="text-2xl text-slate-600" />}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
