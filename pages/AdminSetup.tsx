@@ -57,7 +57,6 @@ const AdminSetup: React.FC = () => {
   };
 
   const refreshData = () => {
-    //console.log("Refreshing data !!");
     data = getTournamentData(tournamentId || '');    
   }
 
@@ -183,7 +182,7 @@ const AdminSetup: React.FC = () => {
         <nav className="flex gap-6 overflow-x-auto no-scrollbar pt-1">
           <button onClick={() => setActiveStep(Step.TOURNAMENT)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.TOURNAMENT ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Tournament</button>
           <button onClick={() => tournamentId && setActiveStep(Step.TEAMS)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.TEAMS ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Teams</button>
-          <button onClick={() => tournamentId && setActiveStep(Step.CATEGORIES) && refreshData()} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.CATEGORIES ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Categories</button>
+          <button onClick={() => tournamentId && setActiveStep(Step.CATEGORIES)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.CATEGORIES ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Categories</button>
           <button onClick={() => tournamentId && setActiveStep(Step.PLAYERS)} className={`text-sm font-bold whitespace-nowrap border-b-2 pb-3 transition-colors ${activeStep === Step.PLAYERS ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'}`}>Players</button>
         </nav>
       </header>
