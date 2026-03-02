@@ -1,11 +1,18 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { tournaments, players } = useAuction();
+  const { tournaments, players,getTournamentData } = useAuction();
+  useEffect(() => {
+    if(tournaments.length === 0){
+      console.log('calling useEffect of LandingPage to populate tournaments !')
+      getTournamentData('');
+    }
+      
+  },[tournaments]);
 
   return (
     <div className="w-full h-screen flex flex-col bg-[#020617] text-white overflow-hidden">

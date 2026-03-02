@@ -281,11 +281,11 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
 
     console.log(`Adding ${newCategories.length} categories for tournamentId - ${tournamentId} in local storage` );
-    setCategories(newCategories);
-    // setCategories(prev => {
-    //   const otherTournamentCategories = prev.filter(c => c.tournamentId !== tournamentId);
-    //   return [...otherTournamentCategories, ...newCategories];
-    // });
+    //setCategories(newCategories);
+     setCategories(prev => {
+       const otherTournamentCategories = prev.filter(c => c.tournamentId !== tournamentId);
+       return [...otherTournamentCategories, ...newCategories];
+     });
   };
 
   const deleteCategory = (id: string) => setCategories(prev => prev.filter(c => c.id !== id));
@@ -314,18 +314,44 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       status: p.status
       
     }));
-    console.log("bulkAddAPlayers called for size of newPlayers -->"+newPlayers.length);
+    console.log(`bulkAddAPlayers called for  ${newPlayers.length} players for tournamentId - ${tournamentId}`);
     //console.log("newPLayers Data  -->"+JSON.stringify(newPlayers));
     //console.log(`tournamentID passed - ${tournamentId} for players - ${newPlayers}`)    
     
+    setPlayers((prevPlayers) => {
+      if(!prevPlayers || prevPlayers.length === 0){
+        console.log("No previous player stored in cache, hence adding all the players from API")
+        return newPlayers;
+      }
+      const playerMap = new Map(prevPlayers.map(p => [p.id, p]));
     
+      newPlayers.forEach((newPlayer) => {
+        playerMap.set(newPlayer.id, newPlayer); // overwrite if exists, add if not
+      });
     
-    setPlayers(prev => {
-      //want to add only unique players 
-      const existingIds = new Set(prev.map(p => p.id));
-      const uniqueNewPlayers = newPlayers.filter(p => !existingIds.has(p.id));
-      return [ ...uniqueNewPlayers];
+      return Array.from(playerMap.values());
     });
+    
+    /*setPlayers(prev => {
+      //want to add only unique players 
+      if(prev){
+        const existingIds = new Set(prev.map(p => p.id));
+        console.log("Existing ids -->"+JSON.stringify(existingIds)+"size of existing Ids -->"+existingIds.size);
+        if(!existingIds || existingIds.size === 0){
+          console.log('No existing players found, hence adding new ones !')
+          return newPlayers;
+        }
+        
+        const uniqueNewPlayers = newPlayers.filter(p => !existingIds.has(p.id));
+        console.log(`In SetPlayers for ${uniqueNewPlayers.length} players !`)
+        
+        return [ ...uniqueNewPlayers];
+      }else {
+        console.log('no previous players found in cache, hence adding new ones !')
+        return newPlayers;
+      }
+      
+    });*/
   };
 
   const deletePlayer = (id: string) => setPlayers(prev => prev.filter(p => p.id !== id));
@@ -619,12 +645,21 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // set teamId 
           let matchedTeamId = '';
           const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
-          if (matchedTeam) matchedTeamId = matchedTeam.id;
           
+          if (matchedTeam) {            
+              matchedTeamId = matchedTeam.id;                      
+          }
 
           //set categoryId
+          let playerCategoryId = '';
           const playerCategory = categories.find((cat:any) => cat.name === player['Category'])
-          const playerCategoryId = playerCategory.id;
+          if(!playerCategory){
+            console.log(`categories from cache --> ${JSON.stringify(categories)}`);
+            console.log(`Cannot find category for player and categoryId --> ${player['Category']} and name --> ${player['Full Name']}`);
+          }else {
+            playerCategoryId = playerCategory.id; 
+          }
+          
           
           //console.log(`Player ${player['Full Name']} , sold to team - ${(player['Team'] || player.team)}, teamId - ${matchedTeamId}`)
           
@@ -637,6 +672,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           status: status,
           profile,
           categoryId: (playerCategoryId ||player.categoryId || player['categoryId'] || ''),
+          category: (player['Category'] || ''),
           tournamentId:  (player['tournamentId']).toString(),
           sheetId: player.sheetId || undefined,
           mobileNumber: player.mobileNumber || '',
@@ -730,7 +766,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const getTournamentData = useCallback((id: string) => {
    // console.log("Called get Tournament Data to get tournament, teams for Tid -->"+id);
     //console.log("teams -->"+JSON.stringify(teams));
-    return {
+    return {      
       tournament: tournaments.find(t => t.id === id),
       teams: teams.filter(t => t.tournamentId === id),
       categories: categories.filter(c => c.tournamentId === id),

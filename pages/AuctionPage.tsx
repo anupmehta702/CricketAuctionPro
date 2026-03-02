@@ -6,6 +6,7 @@ import { PlayerStatus, Bid, Team } from '../types';
 import BottomNav from '../components/BottomNav';
 import { json } from 'stream/consumers';
 import playersImages from '../src/assets/players/index.js'
+import teamImages from '../src/assets/teams/index.js';
 
 const AuctionPage: React.FC = () => {
   const { tournamentId, playerId } = useParams<{ tournamentId: string, playerId: string }>();
@@ -15,6 +16,7 @@ const AuctionPage: React.FC = () => {
   const [selectedBidTeam, setSelectedBidTeam] = useState<string>('');
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [localSyncing, setLocalSyncing] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const currentPlayer = players.find(p => p.id === playerId);
   const playerCategory = categories.find(c => c.id === currentPlayer?.categoryId);
@@ -55,7 +57,11 @@ const AuctionPage: React.FC = () => {
     setLocalSyncing(true);
     await finalizePlayer(currentPlayer.id, PlayerStatus.SOLD, currentHighestBid.teamId, currentHighestBid.amount);
     setLocalSyncing(false);
-    navigate(`/selection/${tournamentId}`);
+    setShowCelebration(true);
+    setTimeout(() => {
+      setShowCelebration(false);
+      navigate(`/selection/${tournamentId}`);
+    }, 4000);
   };
 
   const handleUnsold = async () => {
@@ -65,8 +71,55 @@ const AuctionPage: React.FC = () => {
     navigate(`/selection/${tournamentId}`);
   };
 
+  const winningTeam = currentHighestBid ? data.teams.find(t => t.id === currentHighestBid.teamId) : null;
+
   return (
     <div className="w-full h-screen flex flex-col bg-[#020617] text-white overflow-hidden">
+      
+      {showCelebration && winningTeam && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="relative w-full max-w-md m-4 text-center">
+            <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400 to-amber-600 rounded-lg animate-pulse-slow blur-2xl opacity-50"></div>
+            
+            <div className="relative bg-slate-900 border-4 border-yellow-500 rounded-3xl p-8 shadow-2xl animate-slide-up">
+              <div className="relative w-48 h-48 mx-auto mb-6">
+                <img src={playersImages[currentPlayer.imageUrl]} className="w-full h-full object-cover rounded-full border-4 border-white/10 shadow-lg" alt={currentPlayer.name} />
+                <img src={teamImages[winningTeam.logo]} className="absolute -bottom-2 -right-2 w-20 h-20 bg-slate-800 object-contain p-2 rounded-full border-4 border-slate-700 shadow-md" alt={winningTeam.name} />
+              </div>
+              
+              <h2 className="text-5xl font-bold font-display text-white tracking-tight animate-text-glow">{currentPlayer.name}</h2>
+              
+              <div className="my-4">
+                <span className="inline-block px-8 py-2 text-2xl font-bold text-slate-900 bg-yellow-400 rounded-full transform -rotate-6 animate-stamp-in">
+                  SOLD!
+                </span>
+              </div>
+
+              <p className="text-slate-400 text-lg">to</p>
+              <p className="text-3xl font-bold text-blue-400 mt-1">{winningTeam.name}</p>
+              
+              <p className="mt-6 text-5xl font-bold text-yellow-400 font-display tracking-tighter">
+                ₹{currentHighestBid.amount.toFixed(2)} <span className="text-3xl opacity-80">Cr</span>
+              </p>
+            </div>
+          </div>
+          <style>{`
+            @keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+            @keyframes slide-up { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+            @keyframes stamp-in { 
+              0% { transform: scale(1.5) rotate(-15deg); opacity: 0; }
+              70% { transform: scale(0.9) rotate(-3deg); opacity: 1; }
+              100% { transform: scale(1) rotate(-6deg); opacity: 1; } 
+            }
+            @keyframes pulse-slow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.8; } }
+            @keyframes text-glow {
+              0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+              50% { text-shadow: 0 0 25px rgba(255,255,255,0.6); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Dynamic Header */}
       <header className="shrink-0 pt-14 pb-4 px-5 flex justify-between items-center bg-slate-950/80 border-b border-white/5 z-20">
         <div className="flex items-center gap-3">
@@ -87,7 +140,7 @@ const AuctionPage: React.FC = () => {
         </div>
       </header>
 
-      <main className={`flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-8 no-scrollbar pb-40 transition-opacity ${localSyncing ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <main className={`flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-8 no-scrollbar pb-40 transition-opacity ${localSyncing || showCelebration ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
         
         {/* SECTION 1: Current Player Card */}
         <section className="flex flex-col gap-3">

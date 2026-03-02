@@ -8,6 +8,9 @@ import AuctionPage from './pages/AuctionPage';
 import SummaryPage from './pages/SummaryPage';
 import RosterPage from './pages/RosterPage';
 import PlayerSelectionPage from './pages/PlayerSelectionPage';
+import LoginPage from './pages/LoginPage';
+import CreateAccountPage from './pages/CreateAccountPage';
+import PlayersPage from './pages/PlayersPage';
 
 const App: React.FC = () => {
   return (
@@ -15,12 +18,16 @@ const App: React.FC = () => {
       <HashRouter>
         <div className="min-h-screen bg-[#020617] text-white">
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/create-account" element={<CreateAccountPage />} />
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/admin/:tournamentId?" element={<AdminSetup />} />
             <Route path="/selection/:tournamentId" element={<PlayerSelectionPage />} />
             <Route path="/auction/:tournamentId/:playerId" element={<AuctionPage />} />
             <Route path="/summary/:tournamentId" element={<SummaryPage />} />
             <Route path="/roster/:tournamentId" element={<RosterPage />} />
+            <Route path="/players/:tournamentId" element={<PlayersPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

@@ -140,13 +140,15 @@ const AdminSetup: React.FC = () => {
 
       //3.Teams 
       const teamsToAdd = await getTeamsFromSheetAPI();
-      teamsToAdd.map((team) => {
-        console.log("printing the image name for teamId "+ team.id +" , image name -->"+teamsImages[team.logo]);        
-      })
       if (teamsToAdd.length > 0)
          bulkAddTeams(currentTid, teamsToAdd);
       
+      data = getTournamentData(currentTid);
+      console.log("Categories size from cache before loading players-->"+data.categories.length)
+      console.log("teams size from cache before loading players-->"+data.teams.length)
+      //console.log("players size from cache before loading players-->"+data.players.length")
       // 4. PLAYERS (Sheet1)      
+      console.log("Categories size from cache before loading players-->"+data.categories.length);
       const playersToAdd = (await getPlayersFromSheetAPI(currentTid));
       //.filter(p => p.name !== 'Unknown Player');
       if (playersToAdd.length > 0) {

@@ -10,8 +10,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ tournamentId }) => {
   const location = useLocation();
 
   const navItems = [
-    { label: 'Auction', icon: 'lucide:gavel', path: `/auction/${tournamentId}` },
+    { label: 'Auction', icon: 'lucide:gavel', path: `/selection/${tournamentId}` },
     { label: 'Squads', icon: 'lucide:users', path: `/roster/${tournamentId}` },
+    { label: 'Players', icon: 'lucide:users-2', path: `/players/${tournamentId}` },
     { label: 'Summary', icon: 'lucide:layout-dashboard', path: `/summary/${tournamentId}` },
     { label: 'Settings', icon: 'lucide:settings', path: `/admin/${tournamentId}` },
   ];
