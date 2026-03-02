@@ -58,10 +58,6 @@ const AuctionPage: React.FC = () => {
     await finalizePlayer(currentPlayer.id, PlayerStatus.SOLD, currentHighestBid.teamId, currentHighestBid.amount);
     setLocalSyncing(false);
     setShowCelebration(true);
-    setTimeout(() => {
-      setShowCelebration(false);
-      navigate(`/selection/${tournamentId}`);
-    }, 4000);
   };
 
   const handleUnsold = async () => {
@@ -101,6 +97,15 @@ const AuctionPage: React.FC = () => {
               <p className="mt-6 text-5xl font-bold text-yellow-400 font-display tracking-tighter">
                 ₹{currentHighestBid.amount.toFixed(2)} <span className="text-3xl opacity-80">Cr</span>
               </p>
+              <button 
+                onClick={() => {
+                  setShowCelebration(false);
+                  navigate(`/selection/${tournamentId}`);
+                }} 
+                className="mt-8 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-lg transition-all"
+              >
+                Done
+              </button>
             </div>
           </div>
           <style>{`

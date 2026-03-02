@@ -89,3 +89,9 @@ export interface Bid {
   amount: number;
   timestamp: string;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'admin' | 'user';
+}

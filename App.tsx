@@ -11,6 +11,7 @@ import PlayerSelectionPage from './pages/PlayerSelectionPage';
 import LoginPage from './pages/LoginPage';
 import CreateAccountPage from './pages/CreateAccountPage';
 import PlayersPage from './pages/PlayersPage';
+import AdminRoute from './components/AdminRoute';
 
 const App: React.FC = () => {
   return (
@@ -22,13 +23,13 @@ const App: React.FC = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/create-account" element={<CreateAccountPage />} />
             <Route path="/landing" element={<LandingPage />} />
-            <Route path="/admin/:tournamentId?" element={<AdminSetup />} />
-            <Route path="/selection/:tournamentId" element={<PlayerSelectionPage />} />
-            <Route path="/auction/:tournamentId/:playerId" element={<AuctionPage />} />
+            <Route path="/admin/:tournamentId?" element={<AdminRoute><AdminSetup /></AdminRoute>} />
+            <Route path="/selection/:tournamentId" element={<AdminRoute><PlayerSelectionPage /></AdminRoute>} />
+            <Route path="/auction/:tournamentId/:playerId" element={<AdminRoute><AuctionPage /></AdminRoute>} />
             <Route path="/summary/:tournamentId" element={<SummaryPage />} />
             <Route path="/roster/:tournamentId" element={<RosterPage />} />
             <Route path="/players/:tournamentId" element={<PlayersPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/landing" replace />} />
           </Routes>
         </div>
       </HashRouter>

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Tournament, Team, Category, Player, Bid, PlayerStatus, PlayerProfile,FetchedPlayer } from '../types';
+import { Tournament, Team, Category, Player, Bid, PlayerStatus, PlayerProfile,FetchedPlayer, User } from '../types';
 import { stringify } from 'querystring';
 
 declare const XLSX: any;
@@ -11,9 +11,12 @@ interface AuctionContextType {
   categories: Category[];
   players: Player[];
   bids: Bid[];
+  user: User | null;
   isSyncing: boolean;
   updateUrl: string;
   sheetUrl: string;
+  login: (user: User) => void;
+  logout: () => void;
   setUpdateUrl: (url: string) => void;
   setSheetUrl: (url: string) => void;
   addTournament: (t:Tournament) => Tournament;
@@ -76,6 +79,11 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('au_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [updateUrl, setUpdateUrlState] = useState<string>(() => {
     return localStorage.getItem('au_update_url') || DEFAULT_UPDATE_URL;
   });
@@ -93,9 +101,17 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('au_categories', JSON.stringify(categories));
     localStorage.setItem('au_players', JSON.stringify(players));
     localStorage.setItem('au_bids', JSON.stringify(bids));
+    if (user) {
+      localStorage.setItem('au_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('au_user');
+    }
     localStorage.setItem('au_update_url', updateUrl);
     localStorage.setItem('au_sheet_url', sheetUrl);
-  }, [tournaments, teams, categories, players, bids, updateUrl, sheetUrl]);
+  }, [tournaments, teams, categories, players, bids, user, updateUrl, sheetUrl]);
+
+  const login = (user: User) => setUser(user);
+  const logout = () => setUser(null);
 
   const setUpdateUrl = (url: string) => setUpdateUrlState(url);
   const setSheetUrl = (url: string) => setSheetUrlState(url);
@@ -706,12 +722,21 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const cleanId = isNaN(Number(player.id)) ? player.id : Number(player.id);
       const cleanTeamId = (teamIdForSync !== undefined && !isNaN(Number(teamIdForSync))) ? Number(teamIdForSync) : (teamIdForSync || "");
+      let bidText = '';
+      bids.map((currentBid) => {
+        //Anup M
+        const selectedTeam = teams.filter((currentTeam) => currentTeam.id === currentBid.teamId);
 
+        bidText = bidText + "Team - "+selectedTeam[0].name+" bid for amount - "+currentBid.amount+" Cr."  
+      });
+      console.log("Bid logs -->"+bidText);
+  
       const payload = {
         "id": cleanId,
         "price": finalPrice || 0,
         "teamId": cleanTeamId,
-        "status": player.status.toLowerCase()
+        "status": player.status.toLowerCase(),
+        "bid": bidText
       };
 
       console.log(`Cloud Sync: Sending POST to ${targetUrl}`, payload);
@@ -846,7 +871,7 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
 
   return (
     <AuctionContext.Provider value={{
-      tournaments, teams, categories, players, bids, isSyncing, updateUrl, sheetUrl, setUpdateUrl, setSheetUrl,
+      tournaments, teams, categories, players, bids, user, isSyncing, updateUrl, sheetUrl, setUpdateUrl, setSheetUrl, login, logout, 
       addTournament, updateTournament, addTeam, bulkAddTeams, deleteTeam,
       addCategory, bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer,
       placeBid, finalizePlayer, getTournamentData, 

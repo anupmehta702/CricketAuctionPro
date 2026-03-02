@@ -125,14 +125,22 @@ const PlayersPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#020617] pb-24 text-white">
       <header className="shrink-0 pt-14 pb-6 px-5 bg-slate-950/80 sticky top-0 z-40 backdrop-blur-md border-b border-white/5 flex justify-between items-center">
         <h1 className="text-xl font-bold font-display">All Players</h1>
-        <button
-          onClick={handleRefresh}
-          disabled={isSyncing || loading}
-          className="flex items-center gap-2 text-sm text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-50"
-        >
-          <iconify-icon icon={(isSyncing || loading) ? 'line-md:loading-loop' : 'lucide:refresh-cw'} className="text-base" />
-          {(isSyncing || loading) ? 'Syncing...' : 'Live Data'}
-        </button>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20">
+            <span className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
+              <button
+                onClick={handleRefresh}
+                className="px-2 py-0.5 uppercase rounded hover:bg-blue-500/20 transition-colors focus:outline-none"
+                type="button"
+                disabled={isSyncing || loading}
+                title="Refresh Data"
+              >
+                {/* <iconify-icon icon={(isSyncing || loading) ? 'line-md:loading-loop' : 'lucide:refresh-cw'} className="text-base" /> */}
+                {(isSyncing || loading) ? 'Syncing...' : 'Live Data'}
+              </button>
+            </span>
+          </div>
+        
       </header>
       <main className="flex-1 px-5 py-6 space-y-8">
         {(loading) ? (

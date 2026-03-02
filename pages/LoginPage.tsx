@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuction } from '../context/AuctionContext';
 
 const SUPABASE_URL = 'https://yvauqnrtyhgtgfixyoqv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2YXVxbnJ0eWhndGdmaXh5b3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNTQ5MjUsImV4cCI6MjA4NzczMDkyNX0.d7u2qgiSNloLFlHeAtc2hBeXaWKtOmNCXDW4HR-SXaQ';
@@ -13,6 +14,7 @@ const LoginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
+    const { login } = useAuction();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,26 +29,24 @@ const LoginPage: React.FC = () => {
         try {
             const { data: profile, error: profileError } = await supabase
                 .from('profiles')
-                .select('username,role,email')                
+                .select('id, username, role, email')
                 .eq('username', username)
                 .single();
 
-            if (profileError || !profile) {
-                throw new Error('Invalid username or password.');
+            if (profileError) {
+                throw new Error('Invalid username or password');
             }
-            //const generatedEmail = `${profile.username}@gmail.com`
-            console.log('profile information username-->'+profile.username + 
-                ' role -->' + profile.role + ' email -->'+ profile.email);
-                
-            const { error: authError } = await supabase.auth.signInWithPassword({
+
+            const { error: signInError } = await supabase.auth.signInWithPassword({
                 email: profile.email,
                 password,
             });
 
-            if (authError) {
-                throw new Error('Invalid username or password.');
+            if (signInError) {
+                throw new Error(signInError.message);
             }
 
+            login({ id: profile.id, username: profile.username, role: profile.role });
             navigate('/landing');
         } catch (err: any) {
             setError(err.message);
@@ -56,55 +56,62 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-            <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-lg shadow-lg">
-                <h1 className="text-3xl font-bold text-center text-white">Login</h1>
-                <form onSubmit={handleLogin} className="space-y-6">
-                    <div>
-                        <label className="block mb-2 text-sm font-medium text-gray-400">Username</label>
+        <div className="w-full h-screen flex flex-col items-center justify-center bg-slate-950 p-6">
+            <div className="w-full max-w-sm">
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl font-bold font-display text-white">Auction Manager</h1>
+                    <p className="text-slate-400 text-sm mt-2">Sign in to continue</p>
+                </div>
+
+                <form onSubmit={handleLogin} className="bg-slate-900/50 border border-white/10 rounded-3xl p-8 shadow-2xl">
+                    {error && (
+                        <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold text-center rounded-lg p-3">
+                            {error}
+                        </div>
+                    )}
+                    <div className="mb-4">
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2" htmlFor="username">
+                            Username
+                        </label>
                         <input
+                            id="username"
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                             placeholder="Enter your username"
                         />
                     </div>
-                    <div>
-                        <label className="block mb-2 text-sm font-medium text-gray-400">Password</label>
+                    <div className="mb-6">
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2" htmlFor="password">
+                            Password
+                        </label>
                         <input
+                            id="password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                             placeholder="Enter your password"
                         />
                     </div>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:grayscale text-white font-bold py-3 px-4 rounded-xl text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95"
                     >
-                        {loading ? (
-                            <div className="flex items-center justify-center">
-                                <svg className="w-5 h-5 mr-3 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>Logging in...</span>
-                            </div>
-                        ) : (
-                            'Login'
-                        )}
+                        {loading ? 'Signing In...' : 'Sign In'}
                     </button>
-                    {error && <p className="mt-4 text-sm text-center text-red-400">{error}</p>}
+
+                    <div className="text-center mt-6">
+                        <p className="text-xs text-slate-500">
+                            Don't have an account?{' '}
+                            <Link to="/create-account" className="font-bold text-blue-400 hover:underline">
+                                Create one
+                            </Link>
+                        </p>
+                    </div>
                 </form>
-                <p className="text-sm text-center text-gray-400">
-                    Don't have an account?{' '}
-                    <Link to="/create-account" className="font-medium text-blue-500 hover:underline">
-                        Create Account
-                    </Link>
-                </p>
             </div>
         </div>
     );
