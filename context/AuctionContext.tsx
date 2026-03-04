@@ -22,6 +22,7 @@ interface AuctionContextType {
   addTournament: (t:Tournament) => Tournament;
   updateTournament: (t: Tournament) => void;
   addTeam: (t: Omit<Team, 'id' | 'remainingPurse' | 'playersCount'>) => void;
+  updateTeam: (team: Team) => Promise<void>;
   bulkAddTeams: (tournamentId: string, ts: Team[]) => void;
   deleteTeam: (id: string) => void;
   addCategory: (c: Omit<Category, 'id'>) => void;
@@ -154,6 +155,12 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTeams(prev => [...prev, newTeam]);
   };
 
+  const updateTeam = async (updatedTeam: Team) => {
+    const success = await addTeamToSheet(updatedTeam);
+    if (success) {
+      setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+    }
+  };
   
   const bulkAddTeams = (tournamentId: string, newTeams: Team[]) => {
     setTeams(prev => {
@@ -259,7 +266,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         "teamId": player.soldToTeamId || "",
         "Status": player.status ? player.status.toLowerCase() : "available",
         "Profile": player.profile || "",
-        "categoryId": player.categoryId,
+        "categoryId": Number(player.categoryId),        
         "tournamentId": player.tournamentId
       };
       console.log("Player ADD URL -->" + targetUrl + " payload -->" + JSON.stringify(payload));
@@ -318,13 +325,14 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setPlayers(prev => [...prev, newPlayer]);
   };
 
-  const updatePlayer = (updatedPlayer: Player) => {
-    if (addPlayerToSheet(updatedPlayer)) {
-      console.log("Player updated successfully");
+  const updatePlayer = async (updatedPlayer: Player) => {
+    const response = await addPlayerToSheet(updatedPlayer);
+    if (response){
       setPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
-    } else {
-      console.error("Failed to update player");
-    } 
+    }else {
+      console.log("Updating player failed !");
+    }
+    
   };
 
   // Fix: Included status as an optional property in the input type for bulkAddPlayers to resolve TypeScript error on line 158
@@ -884,13 +892,13 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
       addTournament, updateTournament, addTeam, bulkAddTeams, deleteTeam,
       addCategory, bulkAddCategories, deleteCategory, addPlayer, updatePlayer, bulkAddPlayers, deletePlayer,
       placeBid, finalizePlayer, getTournamentData, 
-      refreshPlayersFromSheet,
+      refreshPlayersFromSheet, updateTeam, 
       getTeamsFromSheetAPI,
       getPlayersTeamWiseFromAPI,
       getTournamentDetailsFromAPI,
       getCategoriesDetailsFromAPI,
       getPlayersFromSheetAPI,
-      clearBids    
+      clearBids
     }}>
       {children}
     </AuctionContext.Provider>

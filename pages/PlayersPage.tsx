@@ -142,6 +142,12 @@ const PlayersPage: React.FC = () => {
     const category = categories.find(c => c.id === categoryId);
     const playerStatus = soldToTeamId ? PlayerStatus.SOLD : PlayerStatus.AVAILABLE;
 
+    const playerToUpdate: Player = {
+      ...updatedData,
+      categoryId: category ? category.id : '',
+      status: playerStatus,
+      category: category ? category.name : '',
+    };
     const payload = {
         "ID": id,
         "Full Name": name,
@@ -153,8 +159,10 @@ const PlayersPage: React.FC = () => {
         "categoryId": categoryId,
         "tournamentId": tournamentId
     };
+    updatePlayer(playerToUpdate);
+    setEditingPlayer(null);
 
-    try {
+    /*try {
         const response = await fetch(`${updateUrl}?action=updatePlayers`, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -175,7 +183,8 @@ const PlayersPage: React.FC = () => {
         }
     } catch (error) {
         console.error("Error updating player:", error);
-    }
+    }*/
+   
   };
 
   const getRoleColor = (profile: PlayerProfile) => {

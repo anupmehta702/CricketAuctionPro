@@ -1,22 +1,103 @@
-/* SQUADS PAGE: Displays the roster of the selected team */
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
-import { PlayerStatus, PlayerProfile } from '../types';
+import { PlayerStatus, PlayerProfile, Team } from '../types';
 import BottomNav from '../components/BottomNav';
-import teamsImages from '../src/assets/teams/index.js'
-import playersImages from '../src/assets/players/index.js'
+import teamsImages from '../src/assets/teams/index.js';
+import playersImages from '../src/assets/players/index.js';
+
+interface EditTeamModalProps {
+  team: Team;
+  onUpdate: (updatedData: any) => void;
+  onCancel: () => void;
+}
+
+const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, onUpdate, onCancel }) => {
+  const [formData, setFormData] = useState({ ...team });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">Edit Team</h2>
+        {team.logo && (
+            <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-2 border-slate-600">
+              <img src={teamsImages[team.logo]} alt={`${team.name} logo`} className="w-full h-full object-cover" />
+            </div>
+        )}
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Team Name</label>
+            <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Team Owner</label>
+            <input type="text" name="owner" value={formData.owner} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Purse</label>
+            <input type="number" name="purse" value={formData.purse} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Remaining Purse</label>
+            <input type="number" name="remainingPurse" value={formData.remainingPurse} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
+          </div>
+          <div className="flex justify-end gap-4">
+            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded-md bg-blue-600">Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 
 const RosterPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const { getTournamentData, players, categories } = useAuction();
+  const { getTournamentData, players, categories, user, updateTeam } = useAuction();
   const data = getTournamentData(tournamentId || '');
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(data.teams[0]?.id || null);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+
+  useEffect(() => {
+    if (!selectedTeamId && data.teams.length > 0) {
+      setSelectedTeamId(data.teams[0].id);
+    }
+  }, [data.teams, selectedTeamId]);
 
   if (!data.tournament) return <div className="p-10 text-center">Tournament not found</div>;
 
   const activeTeam = data.teams.find(t => t.id === selectedTeamId) || data.teams[0];
   const teamRoster = players.filter(p => p.tournamentId === tournamentId && p.status === PlayerStatus.SOLD && p.soldToTeamId === activeTeam?.id);
+
+  const handleEditTeam = (team: Team) => {
+    setEditingTeam(team);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTeam(null);
+  };
+
+  const handleUpdateTeam = async (updatedData: Team) => {
+    const numericData = {
+      ...updatedData,
+      purse: parseFloat(String(updatedData.purse)),
+      remainingPurse: parseFloat(String(updatedData.remainingPurse))
+    }
+    await updateTeam(numericData);
+    setEditingTeam(null);
+  };
 
   const getRoleColor = (profile: PlayerProfile) => {
     switch (profile) {
@@ -42,13 +123,16 @@ const RosterPage: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center">
-              <iconify-icon icon="mdi:shield-star" className="text-blue-500 text-xl" />
+              {activeTeam.logo && <img src={teamsImages[activeTeam.logo]} className="w-full h-full object-cover" />}
             </div>
             <div>
               <h1 className="text-xl font-bold font-display">{activeTeam?.name || 'Rosters'}</h1>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">Squad Management</p>
             </div>
           </div>
+          {user?.role === 'admin' && (
+              <button onClick={() => handleEditTeam(activeTeam)} className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs">Edit Team</button>
+          )}
         </div>
 
         {activeTeam && (
@@ -120,8 +204,16 @@ const RosterPage: React.FC = () => {
       </main>
 
       <BottomNav tournamentId={tournamentId!} />
+
+      {editingTeam && (
+        <EditTeamModal 
+          team={editingTeam} 
+          onUpdate={handleUpdateTeam}
+          onCancel={handleCancelEdit}
+        />
+      )}
     </div>
   );
 };
 
-export default RosterPage;
+export default RosterPage; 
