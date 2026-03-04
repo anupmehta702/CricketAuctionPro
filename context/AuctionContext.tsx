@@ -28,7 +28,7 @@ interface AuctionContextType {
   bulkAddCategories: (tournamentId: string, cs: (Omit<Category, 'id'> & { id?: string })[]) => void;
   deleteCategory: (id: string) => void;
   addPlayer: (p: Omit<Player,'id'>) => void;
-  // Fix: Included status as an optional property in the input type for bulkAddPlayers
+  updatePlayer: (player: Player) => void;
   bulkAddPlayers: (tournamentId: string, ps: Player[]) => void;
   deletePlayer: (id: string) => void;
   placeBid: (bid: Omit<Bid, 'id' | 'timestamp'>) => string | null;
@@ -316,6 +316,15 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
       addPlayerToSheet(newPlayer);
     setPlayers(prev => [...prev, newPlayer]);
+  };
+
+  const updatePlayer = (updatedPlayer: Player) => {
+    if (addPlayerToSheet(updatedPlayer)) {
+      console.log("Player updated successfully");
+      setPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+    } else {
+      console.error("Failed to update player");
+    } 
   };
 
   // Fix: Included status as an optional property in the input type for bulkAddPlayers to resolve TypeScript error on line 158
@@ -873,7 +882,7 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
     <AuctionContext.Provider value={{
       tournaments, teams, categories, players, bids, user, isSyncing, updateUrl, sheetUrl, setUpdateUrl, setSheetUrl, login, logout, 
       addTournament, updateTournament, addTeam, bulkAddTeams, deleteTeam,
-      addCategory, bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer,
+      addCategory, bulkAddCategories, deleteCategory, addPlayer, updatePlayer, bulkAddPlayers, deletePlayer,
       placeBid, finalizePlayer, getTournamentData, 
       refreshPlayersFromSheet,
       getTeamsFromSheetAPI,
@@ -881,7 +890,7 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
       getTournamentDetailsFromAPI,
       getCategoriesDetailsFromAPI,
       getPlayersFromSheetAPI,
-      clearBids
+      clearBids    
     }}>
       {children}
     </AuctionContext.Provider>

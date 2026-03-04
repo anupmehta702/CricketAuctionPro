@@ -2,9 +2,75 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
-import { Player, PlayerStatus, PlayerProfile } from '../types';
+import { Player, PlayerStatus, PlayerProfile, Category, Team } from '../types';
 import BottomNav from '../components/BottomNav';
 import playersImages from '../src/assets/players/index.js';
+
+interface EditPlayerModalProps {
+  player: Player;
+  onUpdate: (updatedData: any) => void;
+  onCancel: () => void;
+  categories: Category[];
+  teams: Team[];
+}
+
+const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, onUpdate, onCancel, categories, teams }) => {
+  const [formData, setFormData] = useState({ ...player });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">Edit Player</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Full Name</label>
+            <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <select name="categoryId" value={formData.categoryId} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2">
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Team</label>
+            <select name="soldToTeamId" value={formData.soldToTeamId} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2">
+              <option value="">-- No Team --</option>
+              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Price</label>
+            <input type="number" name="soldPrice" value={formData.soldPrice} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Profile</label>
+            <select name="profile" value={formData.profile} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2">
+              {Object.values(PlayerProfile).map(profile => (
+                <option key={profile} value={profile}>{profile}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-4">
+            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded-md bg-blue-600">Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 
 const PlayersPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -16,11 +82,15 @@ const PlayersPage: React.FC = () => {
     getPlayersFromSheetAPI,      
     getTournamentData,
     isSyncing,
-    bulkAddPlayers
+    bulkAddPlayers,
+    user,
+    updateUrl,
+    updatePlayer
   } = useAuction();
 
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'available' | 'sold' | 'unsold'>('available');
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
 
   const data = getTournamentData(tournamentId || '');
 
@@ -55,6 +125,56 @@ const PlayersPage: React.FC = () => {
       } catch (error) {
         console.error("Error refreshing players:", error);
       }
+    }
+  };
+
+  const handleEditPlayer = (player: Player) => {
+    setEditingPlayer(player);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPlayer(null);
+  };
+
+  const handleUpdatePlayer = async (updatedData: Player) => {
+    const { id, name, categoryId, soldToTeamId, soldPrice, profile } = updatedData;
+
+    const category = categories.find(c => c.id === categoryId);
+    const playerStatus = soldToTeamId ? PlayerStatus.SOLD : PlayerStatus.AVAILABLE;
+
+    const payload = {
+        "ID": id,
+        "Full Name": name,
+        "price": soldPrice,
+        "teamId": soldToTeamId,
+        "Status": playerStatus.toLowerCase(),
+        "Profile": profile,
+        "Category": category ? category.name : '',
+        "categoryId": categoryId,
+        "tournamentId": tournamentId
+    };
+
+    try {
+        const response = await fetch(`${updateUrl}?action=updatePlayers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            console.log("Player updated successfully");
+            const playerToUpdate: Player = {
+              ...updatedData,
+              status: playerStatus,
+              category: category ? category.name : '',
+            };
+            updatePlayer(playerToUpdate);
+            setEditingPlayer(null);
+        } else {
+            console.error("Failed to update player in the backend");
+        }
+    } catch (error) {
+        console.error("Error updating player:", error);
     }
   };
 
@@ -113,6 +233,12 @@ const PlayersPage: React.FC = () => {
             </>
           )}
         </div>
+        {user?.role === 'admin' && (
+            <button onClick={() => handleEditPlayer(player)} 
+              className="bg-blue-600 text-white px-2 py-1 rounded-md text-xs">
+              <iconify-icon icon="lucide:pencil" className="text-sm text-slate-400" />
+            </button>
+        )}
       </div>
     );
   };
@@ -189,6 +315,15 @@ const PlayersPage: React.FC = () => {
         )}
       </main>
       <BottomNav tournamentId={tournamentId!} />
+      {editingPlayer && (
+        <EditPlayerModal 
+          player={editingPlayer} 
+          onUpdate={handleUpdatePlayer}
+          onCancel={handleCancelEdit}
+          categories={categories}
+          teams={teams.filter(t => t.tournamentId === tournamentId)}
+        />
+      )}
     </div>
   );
 };
