@@ -31,6 +31,15 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, onUpdate, onC
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">Edit Player</h2>
+        <div className="flex justify-center mb-4">
+          <div className="w-24 h-24 rounded-full bg-slate-700 border-2 border-slate-600 overflow-hidden flex items-center justify-center">
+            {player.imageUrl && playersImages[player.imageUrl] ? (
+              <img src={playersImages[player.imageUrl]} alt={player.name} className="w-full h-full object-cover" />
+            ) : (
+              <iconify-icon icon="lucide:user" className="text-4xl text-slate-500" />
+            )}
+          </div>
+        </div>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1">Full Name</label>
@@ -245,7 +254,7 @@ const PlayersPage: React.FC = () => {
         {user?.role === 'admin' && (
             <button onClick={() => handleEditPlayer(player)} 
               className="bg-blue-600 text-white px-2 py-1 rounded-md text-xs">
-              <iconify-icon icon="lucide:pencil" className="text-sm text-slate-400" />
+              <iconify-icon icon="lucide:pencil" className="text-sm" />
             </button>
         )}
       </div>
