@@ -1,12 +1,8 @@
 
 import React, { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from '../src/supabaseClient';
 
 const LoginPage: React.FC = () => {
     const [username, setUsername] = useState('');
