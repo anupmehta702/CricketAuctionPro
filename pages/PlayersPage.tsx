@@ -146,7 +146,7 @@ const PlayersPage: React.FC = () => {
   };
 
   const handleUpdatePlayer = async (updatedData: Player) => {
-    const { id, name, categoryId, soldToTeamId, soldPrice, profile } = updatedData;
+    const { id, name, categoryId, soldToTeamId, soldPrice, profile,imageUrl } = updatedData;
 
     const category = categories.find(c => c.id === categoryId);
     const playerStatus = soldToTeamId ? PlayerStatus.SOLD : PlayerStatus.AVAILABLE;
@@ -157,18 +157,8 @@ const PlayersPage: React.FC = () => {
       status: playerStatus,
       category: category ? category.name : '',
     };
-    const payload = {
-        "ID": id,
-        "Full Name": name,
-        "price": soldPrice,
-        "teamId": soldToTeamId,
-        "Status": playerStatus.toLowerCase(),
-        "Profile": profile,
-        "Category": category ? category.name : '',
-        "categoryId": categoryId,
-        "tournamentId": tournamentId
-    };
-    updatePlayer(playerToUpdate);
+   
+    await updatePlayer(playerToUpdate);
     setEditingPlayer(null);
 
     /*try {

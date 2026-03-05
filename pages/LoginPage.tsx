@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 
-const SUPABASE_URL = 'https://yvauqnrtyhgtgfixyoqv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2YXVxbnJ0eWhndGdmaXh5b3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNTQ5MjUsImV4cCI6MjA4NzczMDkyNX0.d7u2qgiSNloLFlHeAtc2hBeXaWKtOmNCXDW4HR-SXaQ';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const LoginPage: React.FC = () => {

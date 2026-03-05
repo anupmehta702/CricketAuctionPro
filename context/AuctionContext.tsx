@@ -47,6 +47,7 @@ interface AuctionContextType {
   getCategoriesDetailsFromAPI: (tournamentId:String) => Promise<Category[]>;
   getPlayersFromSheetAPI: (tournamentId: string) => Promise<Player[]>;
   clearBids: () => void;
+  uploadImage: (file: File) => Promise<string>;
 }
 
 const AuctionContext = createContext<AuctionContextType | undefined>(undefined);
@@ -267,7 +268,9 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         "Status": player.status ? player.status.toLowerCase() : "available",
         "Profile": player.profile || "",
         "categoryId": Number(player.categoryId),        
-        "tournamentId": player.tournamentId
+        "tournamentId": player.tournamentId,
+        "imageUrl": player.imageUrl || "",
+        "mobileNumber": player.mobileNumber || ""
       };
       console.log("Player ADD URL -->" + targetUrl + " payload -->" + JSON.stringify(payload));
       const response = await fetch(targetUrl, {
