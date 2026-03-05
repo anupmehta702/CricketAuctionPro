@@ -222,7 +222,7 @@ const SummaryPage: React.FC = () => {
             {/* Team Header Card */}
             <div key={activeTeam.id} className="p-4 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <img src={teamsImages[activeTeam.logo] || DefaultLogo} alt={activeTeam.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
+                <img src={activeTeam.logo || DefaultLogo} alt={activeTeam.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
                 <div>
                 <h2 className="text-xl font-bold font-display">{activeTeam.name}</h2>
                 <p className="text-[10px] text-slate-400 uppercase tracking-widest">Owner: {activeTeam.owner}</p>                                

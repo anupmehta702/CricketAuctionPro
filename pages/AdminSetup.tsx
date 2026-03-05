@@ -333,7 +333,7 @@ const AdminSetup: React.FC = () => {
               {data.teams.map(team => (
                 <div key={team.id} className="glass-card p-4 rounded-2xl flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <img src={teamsImages[team.logo] || DefaultLogo} alt={team.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
+                    <img src={team.logo || DefaultLogo} alt={team.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
                     <div>
                       <h3 className="font-bold text-sm">
                         <span className="text-blue-400 mr-2 text-[10px]">#{team.id}</span>
