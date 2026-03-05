@@ -210,8 +210,8 @@ const PlayersPage: React.FC = () => {
     return (
       <div key={player.id} className="glass-card rounded-2xl p-4 flex gap-4 items-center group active:scale-[0.98] transition-all">
         <div className="w-14 h-14 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center shrink-0 relative overflow-hidden">
-          {player.imageUrl && playersImages[player.imageUrl] ? (
-            <img src={playersImages[player.imageUrl]} className="w-full h-full object-cover" />
+          {player.imageUrl  ? (
+            <img src={player.imageUrl} className="w-full h-full object-cover" />
           ) : (
             <iconify-icon icon="lucide:user" className="text-2xl text-slate-600" />
           )}

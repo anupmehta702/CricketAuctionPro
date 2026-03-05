@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Tournament, Team, Category, Player, Bid, PlayerStatus, PlayerProfile,FetchedPlayer, User } from '../types';
-import { stringify } from 'querystring';
+import { supabase } from '../src/supabaseClient';
 
 declare const XLSX: any;
 
@@ -885,28 +885,52 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
   //setCategories(updatedCatMap);
   return updatedCatMap;
 };
- const clearBids = () => {
+  const clearBids = () => {
     setBids([]);
   };
+  const uploadImage = async (file: File) : Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `players/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('player-images')
+      .upload(filePath, file);
+
+    if (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('player-images')
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  };
+
 
   return (
     <AuctionContext.Provider value={{
       tournaments, teams, categories, players, bids, user, isSyncing, updateUrl, sheetUrl, setUpdateUrl, setSheetUrl, login, logout, 
       addTournament, updateTournament, addTeam, bulkAddTeams, deleteTeam,
       addCategory, bulkAddCategories, deleteCategory, addPlayer, updatePlayer, bulkAddPlayers, deletePlayer,
-      placeBid, finalizePlayer, getTournamentData, 
-      refreshPlayersFromSheet, updateTeam, 
+      placeBid, finalizePlayer, getTournamentData,
+      refreshPlayersFromSheet, updateTeam,
       getTeamsFromSheetAPI,
       getPlayersTeamWiseFromAPI,
       getTournamentDetailsFromAPI,
       getCategoriesDetailsFromAPI,
       getPlayersFromSheetAPI,
-      clearBids
+      clearBids,
+      uploadImage
     }}>
       {children}
     </AuctionContext.Provider>
   );
 };
+
+
 
 export const useAuction = () => {
   const context = useContext(AuctionContext);

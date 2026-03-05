@@ -4,7 +4,6 @@ import { useAuction } from '../context/AuctionContext';
 import { PlayerProfile, PlayerStatus } from '../types';
 import DefaultLogo from '../src/assets/default-logo.png';
 import teamsImages from '../src/assets/teams/index.js'
-import playersImages from '../src/assets/players/index.js'
 
 declare const XLSX: any;
 
@@ -19,13 +18,14 @@ const AdminSetup: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId?: string }>();
   const navigate = useNavigate();
   const { 
-    addTournament, updateTournament, getTournamentData, updateUrl, setUpdateUrl
-    ,sheetUrl, setSheetUrl,addTeam, bulkAddTeams, deleteTeam, addCategory
-    ,bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer
-    ,getTeamsFromSheetAPI,
-    getTournamentDetailsFromAPI , 
+    addTournament, updateTournament, getTournamentData, updateUrl, setUpdateUrl,
+    sheetUrl, setSheetUrl, addTeam, bulkAddTeams, deleteTeam, addCategory,
+    bulkAddCategories, deleteCategory, addPlayer, bulkAddPlayers, deletePlayer,
+    getTeamsFromSheetAPI,
+    getTournamentDetailsFromAPI, 
     getCategoriesDetailsFromAPI,
-    getPlayersFromSheetAPI
+    getPlayersFromSheetAPI,
+    uploadImage
   } = useAuction();
 
   const [activeStep, setActiveStep] = useState<Step>(Step.TOURNAMENT);
@@ -43,18 +43,64 @@ const AdminSetup: React.FC = () => {
     soldToTeamId: '', soldPrice: 0, status:PlayerStatus.AVAILABLE
 
   });
+  const [playerImageFile, setPlayerImageFile] = useState<File | null>(null);
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-
-        setTeamForm({ ...teamForm, logo: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      const uploadFileURL = await uploadImage(file);
+      console.log("Upload URL to supabase-->"+uploadFileURL);
+      setTeamForm({ ...teamForm, logo: uploadFileURL });
     }
   };
+
+  const handlePlayerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        setPlayerImageFile(e.target.files[0]);
+    } else {
+        setPlayerImageFile(null);
+    }
+  };
+
+  const handleAddPlayer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tournamentId || !playerForm.name || !playerForm.categoryId) {
+        alert("Please fill all required fields.");
+        return;
+    }
+
+    let uploadedImageUrl = '';
+    if (playerImageFile) {
+        setIsSyncing(true);
+        try {
+            const url = await uploadImage(playerImageFile);
+            if (url) {
+                uploadedImageUrl = url;
+            } else {
+                throw new Error("Upload returned null URL");
+            }
+        } catch (error) {
+            console.error("Image upload failed:", error);
+            alert("Image upload failed. Player will be added without an image.");
+        } finally {
+            setIsSyncing(false);
+        }
+    }
+
+    addPlayer({
+        ...playerForm,
+        tournamentId,
+        imageUrl: uploadedImageUrl,
+    });
+
+    setPlayerForm({
+        name: '', mobileNumber: '', categoryId: '', profile: PlayerProfile.BATSMAN, imageUrl: '',
+        soldToTeamId: '', soldPrice: 0, status: PlayerStatus.AVAILABLE
+    });
+    setPlayerImageFile(null);
+    (e.target as HTMLFormElement).reset();
+  };
+
 
   const refreshData = () => {
     data = getTournamentData(tournamentId || '');    
@@ -74,7 +120,6 @@ const AdminSetup: React.FC = () => {
   }, [data.tournament]);
 
   const handleTournamentSubmit = (e: React.FormEvent) => {
-    //console.log("in Handle Tournament submit -->"+tournamentId)
     e.preventDefault();
     if (tournamentId) {
       updateTournament({ ...tournamentForm, id: tournamentId });
@@ -109,7 +154,6 @@ const AdminSetup: React.FC = () => {
       const arrayBuffer = await response.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
       
-      // 1. TOURNAMENT DETAILS
       let tournamentMap = await getTournamentDetailsFromAPI(tournamentId);
       let currentTid = tournamentId;
       if(tournamentMap.length > 0) {
@@ -130,27 +174,17 @@ const AdminSetup: React.FC = () => {
         return;
       }
 
-      const now = Date.now();
-
-      // 2. CATEGORIES
-      const categoryMap = new Map<string, string>(); // name -> spreadsheetId
       const catsToAdd = await getCategoriesDetailsFromAPI(currentTid);
       if (catsToAdd.length > 0) 
         bulkAddCategories(currentTid, catsToAdd);  
 
-      //3.Teams 
       const teamsToAdd = await getTeamsFromSheetAPI();
       if (teamsToAdd.length > 0)
          bulkAddTeams(currentTid, teamsToAdd);
       
       data = getTournamentData(currentTid);
-      console.log("Categories size from cache before loading players-->"+data.categories.length)
-      console.log("teams size from cache before loading players-->"+data.teams.length)
-      //console.log("players size from cache before loading players-->"+data.players.length")
-      // 4. PLAYERS (Sheet1)      
-      console.log("Categories size from cache before loading players-->"+data.categories.length);
+
       const playersToAdd = (await getPlayersFromSheetAPI(currentTid));
-      //.filter(p => p.name !== 'Unknown Player');
       if (playersToAdd.length > 0) {
         bulkAddPlayers(currentTid, playersToAdd);        
       }
@@ -275,7 +309,7 @@ const AdminSetup: React.FC = () => {
             <form onSubmit={e => { e.preventDefault(); addTeam({ ...teamForm, tournamentId }); setTeamForm({ name: '', owner: '', purse: 100, logo: '' }); }} className="glass-card p-5 rounded-3xl flex flex-col gap-5">
               <div className="flex items-center gap-4">
                 
-                <img src={ DefaultLogo} alt="Team Logo" className="w-24 h-24 rounded-2xl object-cover bg-white/10" />
+                <img src={teamForm.logo || DefaultLogo} alt="Team Logo" className="w-24 h-24 rounded-2xl object-cover bg-white/10" />
                 <div className="flex flex-col gap-2 w-full">
                   <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Team Logo</label>
                   <input type="file" accept="image/*" onChange={handleLogoChange} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
@@ -359,12 +393,16 @@ const AdminSetup: React.FC = () => {
             <div className="flex justify-between items-center">
               <div><h2 className="text-2xl font-bold font-display">Player Roster</h2><p className="text-xs text-slate-400 mt-1">Manage all participants</p></div>
             </div>
-            <div className="glass-card rounded-3xl p-6 space-y-5">
+            <form id="player-form" onSubmit={handleAddPlayer} className="glass-card rounded-3xl p-6 space-y-5">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2"><iconify-icon icon="lucide:user-plus" className="text-blue-500" /> Add New Player</h3>
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Full Name</label>
                   <input type="text" required value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} placeholder="e.g. Virat Kohli" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500" />
+                </div>
+                 <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Player Image</label>
+                    <input type="file" accept="image/*" onChange={handlePlayerImageChange} className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -381,15 +419,16 @@ const AdminSetup: React.FC = () => {
                     </select>
                   </div>
                 </div>
-                <button onClick={() => { if(!playerForm.name || !playerForm.categoryId) return alert("Fill all fields"); addPlayer({ ...playerForm, tournamentId }); setPlayerForm({ ...playerForm, name: '', mobileNumber: '' }); }} className="w-full bg-blue-600 text-white rounded-2xl py-4 font-bold font-display text-base transition-all active:scale-[0.98]">Add Player to List</button>
+                <button type="submit" form="player-form" disabled={isSyncing} className="w-full bg-blue-600 text-white rounded-2xl py-4 font-bold font-display text-base transition-all active:scale-[0.98] disabled:opacity-50">
+                  {isSyncing ? 'Adding...' : 'Add Player to List'}
+                </button>
               </div>
-            </div>
+            </form>
             <div className="space-y-3 pb-24">
               {data.players.map(p => (
                 <div key={p.id} className="glass-card rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                  <img src={playersImages[p.imageUrl] || DefaultLogo} alt={p.name} className="w-10 h-10 rounded-full object-cover bg-white/10" />
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500"><iconify-icon icon="lucide:user" /></div>
+                  <img src={p.imageUrl || DefaultLogo} alt={p.name} className="w-10 h-10 rounded-full object-cover bg-white/10" />
                     <div>
                       <p className="text-sm font-bold text-white">
                         <span className="text-blue-400 mr-2 font-display">#{p.id}</span>

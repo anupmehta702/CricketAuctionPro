@@ -267,7 +267,7 @@ const SummaryPage: React.FC = () => {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-white/5 overflow-hidden">
                           {playerImage ? (
-                            <img src={playersImages[playerImage]} className="w-full h-full object-cover" alt={playerName} />
+                            <img src={playerImage} className="w-full h-full object-cover" alt={playerName} />
                           ) : (
                             <iconify-icon icon="lucide:user" className="text-xl text-slate-600" />
                           )}
