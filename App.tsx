@@ -12,12 +12,14 @@ import LoginPage from './pages/LoginPage';
 import CreateAccountPage from './pages/CreateAccountPage';
 import PlayersPage from './pages/PlayersPage';
 import AdminRoute from './components/AdminRoute';
+import LogoutButton from './components/LogoutButton';
 
 const App: React.FC = () => {
   return (
     <AuctionProvider>
       <HashRouter>
         <div className="min-h-screen bg-[#020617] text-white">
+          <LogoutButton />
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<LoginPage />} />

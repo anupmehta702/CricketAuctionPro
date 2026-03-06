@@ -32,7 +32,7 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, onUpdate, onCancel 
         <h2 className="text-xl font-bold mb-4">Edit Team</h2>
         {team.logo && (
             <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-2 border-slate-600">
-              <img src={teamsImages[team.logo]} alt={`${team.name} logo`} className="w-full h-full object-cover" />
+              <img src={team.logo} alt={`${team.name} logo`} className="w-full h-full object-cover" />
             </div>
         )}
         <form onSubmit={handleSubmit}>
@@ -123,7 +123,7 @@ const RosterPage: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center">
-              {activeTeam.logo && <img src={teamsImages[activeTeam.logo]} className="w-full h-full object-cover" />}
+              {activeTeam.logo && <img src={activeTeam.logo} className="w-full h-full object-cover" />}
             </div>
             <div>
               <h1 className="text-xl font-bold font-display">{activeTeam?.name || 'Rosters'}</h1>
@@ -182,7 +182,7 @@ const RosterPage: React.FC = () => {
             teamRoster.map(p => (
               <div key={p.id} className="glass-card rounded-2xl p-4 flex gap-4 items-center group active:scale-[0.98] transition-all">
                 <div className="w-14 h-14 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center shrink-0 relative overflow-hidden">
-                  {p.imageUrl ? <img src={playersImages[p.imageUrl]} className="w-full h-full object-cover" /> : <iconify-icon icon="lucide:user" className="text-2xl text-slate-600" />}
+                  {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <iconify-icon icon="lucide:user" className="text-2xl text-slate-600" />}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">

@@ -79,8 +79,8 @@ const AuctionPage: React.FC = () => {
             
             <div className="relative bg-slate-900 border-4 border-yellow-500 rounded-3xl p-8 shadow-2xl animate-slide-up">
               <div className="relative w-48 h-48 mx-auto mb-6">
-                <img src={playersImages[currentPlayer.imageUrl]} className="w-full h-full object-cover rounded-full border-4 border-white/10 shadow-lg" alt={currentPlayer.name} />
-                <img src={teamImages[winningTeam.logo]} className="absolute -bottom-2 -right-2 w-20 h-20 bg-slate-800 object-contain p-2 rounded-full border-4 border-slate-700 shadow-md" alt={winningTeam.name} />
+                <img src={currentPlayer.imageUrl} className="w-full h-full object-cover rounded-full border-4 border-white/10 shadow-lg" alt={currentPlayer.name} />
+                <img src={winningTeam.logo} className="absolute -bottom-2 -right-2 w-20 h-20 bg-slate-800 object-contain p-2 rounded-full border-4 border-slate-700 shadow-md" alt={winningTeam.name} />
               </div>
               
               <h2 className="text-5xl font-bold font-display text-white tracking-tight animate-text-glow">{currentPlayer.name}</h2>
@@ -159,7 +159,7 @@ const AuctionPage: React.FC = () => {
               {/* Player Image - Large & Card Style */}
               <div className="w-full md:w-40 h-48 md:h-40 rounded-3xl bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
                 {currentPlayer.imageUrl ? (
-                  <img src={playersImages[currentPlayer.imageUrl]} className="w-full h-full object-cover" alt={currentPlayer.name} />
+                  <img src={currentPlayer.imageUrl} className="w-full h-full object-cover" alt={currentPlayer.name} />
                 ) : (
                   <iconify-icon icon="lucide:user" className="text-6xl text-slate-700" />
                 )}
