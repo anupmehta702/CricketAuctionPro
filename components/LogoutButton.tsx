@@ -15,7 +15,7 @@ const LogoutButton: React.FC = () => {
   return user ? (
     <button
       onClick={handleLogout}
-      className="fixed top-4 right-4 bg-white/5 text-slate-400 px-4 py-2 rounded-lg hover:text-red-500 hover:bg-white/10 transition-colors focus:outline-none"
+      className="fixed top-4 right-4 z-50 bg-white/5 text-slate-400 px-4 py-2 rounded-lg hover:text-red-500 hover:bg-white/10 transition-colors focus:outline-none"
       title="Logout"
     >
       Logout

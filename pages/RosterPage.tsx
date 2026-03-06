@@ -2,10 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
-import { PlayerStatus, PlayerProfile, Team } from '../types';
+import { PlayerStatus, PlayerProfile, Team, Player } from '../types';
 import BottomNav from '../components/BottomNav';
-import teamsImages from '../src/assets/teams/index.js';
-import playersImages from '../src/assets/players/index.js';
+import PlayerCard from '../components/PlayerCard';
+import PlayerListItem from '../components/PlayerListItem';
+
+// Define an enum for view modes
+enum ViewMode {
+  CARD = 'CARD',
+  LIST = 'LIST'
+}
 
 interface EditTeamModalProps {
   team: Team;
@@ -65,10 +71,13 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, onUpdate, onCancel 
 
 const RosterPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const { getTournamentData, players, categories, user, updateTeam } = useAuction();
+  const { getTournamentData, players, categories, user, updateTeam, updatePlayer } = useAuction();
   const data = getTournamentData(tournamentId || '');
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(data.teams[0]?.id || null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.CARD); // Default to card view
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+
 
   useEffect(() => {
     if (!selectedTeamId && data.teams.length > 0) {
@@ -79,7 +88,7 @@ const RosterPage: React.FC = () => {
   if (!data.tournament) return <div className="p-10 text-center">Tournament not found</div>;
 
   const activeTeam = data.teams.find(t => t.id === selectedTeamId) || data.teams[0];
-  const teamRoster = players.filter(p => p.tournamentId === tournamentId && p.status === PlayerStatus.SOLD && p.soldToTeamId === activeTeam?.id);
+  const teamRoster = players.filter(p => p.tournamentId === tournamentId && (p.status === PlayerStatus.SOLD || p.status === PlayerStatus.RETAINED) && p.soldToTeamId === activeTeam?.id);
 
   const handleEditTeam = (team: Team) => {
     setEditingTeam(team);
@@ -87,6 +96,7 @@ const RosterPage: React.FC = () => {
 
   const handleCancelEdit = () => {
     setEditingTeam(null);
+    setEditingPlayer(null);
   };
 
   const handleUpdateTeam = async (updatedData: Team) => {
@@ -99,22 +109,30 @@ const RosterPage: React.FC = () => {
     setEditingTeam(null);
   };
 
-  const getRoleColor = (profile: PlayerProfile) => {
-    switch (profile) {
-      case PlayerProfile.BATSMAN: return 'bg-gradient-to-br from-amber-400 to-amber-600';
-      case PlayerProfile.BOWLER: return 'bg-gradient-to-br from-blue-400 to-blue-600';
-      case PlayerProfile.ALL_ROUNDER: return 'bg-gradient-to-br from-emerald-400 to-emerald-600';
-      default: return 'bg-gradient-to-br from-purple-400 to-purple-600';
-    }
+  const handleEditPlayer = (player: Player) => {
+    setEditingPlayer(player);
   };
 
-  const getRoleAbbr = (profile: PlayerProfile) => {
-    switch (profile) {
-      case PlayerProfile.BATSMAN: return 'BAT';
-      case PlayerProfile.BOWLER: return 'BOWL';
-      case PlayerProfile.ALL_ROUNDER: return 'AR';
-      default: return 'WK';
+  const handleUpdatePlayer = async (updatedData: Player) => {
+    const playerStatus = updatedData.soldToTeamId ? PlayerStatus.SOLD : PlayerStatus.AVAILABLE;
+    await updatePlayer({ ...updatedData, status: playerStatus });
+    setEditingPlayer(null);
+  };
+
+  const renderPlayerList = (players: Player[]) => {
+    if (players.length === 0) {
+      return <p className="text-slate-500 w-full text-center py-10">No players in this category.</p>;
     }
+
+    if (viewMode === ViewMode.LIST) {
+      return <div className="space-y-4">{players.map(p => <PlayerListItem key={p.id} player={p} onEdit={handleEditPlayer} />)}</div>;
+    }
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {players.map(p => <PlayerCard key={p.id} player={p} onEdit={handleEditPlayer} />)}
+      </div>
+    );
   };
 
   return (
@@ -130,9 +148,10 @@ const RosterPage: React.FC = () => {
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">Squad Management</p>
             </div>
           </div>
-          {user?.role === 'admin' && (
-              <button onClick={() => handleEditTeam(activeTeam)} className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs">Edit Team</button>
-          )}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setViewMode(ViewMode.LIST)} className={`p-2 rounded-md ${viewMode === ViewMode.LIST ? 'bg-blue-600/50' : 'bg-white/5'}`}> <iconify-icon icon="lucide:list" className="text-base" /> </button>
+            <button onClick={() => setViewMode(ViewMode.CARD)} className={`p-2 rounded-md ${viewMode === ViewMode.CARD ? 'bg-blue-600/50' : 'bg-white/5'}`}> <iconify-icon icon="lucide:layout-grid" className="text-base" /> </button>
+          </div>
         </div>
 
         {activeTeam && (
@@ -175,32 +194,11 @@ const RosterPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="space-y-4">
-          {teamRoster.length === 0 ? (
-            <div className="text-center py-20 text-slate-600 italic">No players in this squad yet.</div>
-          ) : (
-            teamRoster.map(p => (
-              <div key={p.id} className="glass-card rounded-2xl p-4 flex gap-4 items-center group active:scale-[0.98] transition-all">
-                <div className="w-14 h-14 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center shrink-0 relative overflow-hidden">
-                  {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <iconify-icon icon="lucide:user" className="text-2xl text-slate-600" />}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-base font-bold font-display">{p.name}</h3>
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${getRoleColor(p.profile)}`}>
-                      {getRoleAbbr(p.profile)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400">{categories.find(c => c.id === p.categoryId)?.name || 'Capped'}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Bought For</p>
-                  <p className="text-lg font-bold text-yellow-500">₹{p.soldPrice?.toFixed(2)} Cr</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        {teamRoster.length === 0 ? (
+          <div className="text-center py-20 text-slate-600 italic w-full">No players in this squad yet.</div>
+        ) : (
+          renderPlayerList(teamRoster)
+        )}
       </main>
 
       <BottomNav tournamentId={tournamentId!} />
@@ -212,8 +210,9 @@ const RosterPage: React.FC = () => {
           onCancel={handleCancelEdit}
         />
       )}
+
     </div>
   );
 };
 
-export default RosterPage; 
+export default RosterPage;
