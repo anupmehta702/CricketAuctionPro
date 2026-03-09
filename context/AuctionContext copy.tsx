@@ -19,7 +19,7 @@ interface AuctionContextType {
   logout: () => void;
   setUpdateUrl: (url: string) => void;
   setSheetUrl: (url: string) => void;
-  addTournament: (t:Tournament) => Promise<Tournament>;
+  addTournament: (t:Tournament) => Tournament;
   updateTournament: (t: Tournament) => void;
   addTeam: (t: Omit<Team, 'id' | 'remainingPurse' | 'playersCount'>) => void;
   updateTeam: (team: Team) => Promise<void>;
@@ -40,7 +40,7 @@ interface AuctionContextType {
     categories: Category[];
     players: Player[];
   };
-  //refreshPlayersFromSheet: (tournamentId: string) => Promise<void>;
+  refreshPlayersFromSheet: (tournamentId: string) => Promise<void>;
   getTeamsFromSheetAPI: () => Promise<Team[]>;
   getPlayersTeamWiseFromAPI: (teamId : string,tournamentId: string) =>  Promise<Player[]>;
   getTournamentDetailsFromAPI:  (tournamentId:String) => Promise<Tournament[]>;
@@ -53,7 +53,6 @@ interface AuctionContextType {
 const AuctionContext = createContext<AuctionContextType | undefined>(undefined);
 
 const DEFAULT_UPDATE_URL = "https://script.google.com/macros/s/AKfycbyMwe8LcW6XsLdl_pKZvcL7o7aQjyAS7KYkvG3rZUJIJL8ATVAUjnTds5BMgtBa4TxkCA/exec";
-const DEFAULT_API_UPDATE_URL = "/api"
 const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ksl1ohIMI4hEHI7Lvu6I1oFs_vWEIBhwYVEQQFsZLo0/edit?gid=0#gid=0";
 
 export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -91,10 +90,6 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return localStorage.getItem('au_update_url') || DEFAULT_UPDATE_URL;
   });
 
-  const [updateAPIUrl, setUpdateAPIUrlState] = useState<string>(() => {
-    return localStorage.getItem('au_api_update_url') || DEFAULT_API_UPDATE_URL;
-  });
-
   const [sheetUrl, setSheetUrlState] = useState<string>(() => {
     return localStorage.getItem('au_sheet_url') || DEFAULT_SHEET_URL;
   });
@@ -123,49 +118,24 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setUpdateUrl = (url: string) => setUpdateUrlState(url);
   const setSheetUrl = (url: string) => setSheetUrlState(url);
 
-  const addTournament = async (t: Tournament) => {    
-    /*let newTournament:any;
+  const addTournament = (t: Tournament) => {
+    //console.log("called addTournament with tid -->"+t.id);
+    let newTournament:any;
     if(t.id === undefined){
       newTournament = { ...t, id: Date.now().toString() };    
     }else {
       newTournament = t;
-    }*/
-    if(t.id !== 'undefined' && t.id !== '0' ){      
-      // Check if tournament with t.id already exists, if so, update it and return the updated tournament
-      const existing = tournaments.find(tournament => tournament.id === t.id);
-      if (existing) {
-        console.log("Tournament already exists , so updating it ");
-        updateTournament(t);
-        return t;
-      }
-    }    
-    //Add tournamnet via API
-    const targetUrl = updateAPIUrl+"/tournaments"
-    const payload = {
-        "name" : t.name,
-        "organization" : t.name,
-        "players_per_team" : t.playersPerTeam,
-        "no_of_teams" : t. numberOfTeams,
-        "created_at" : t.auctionDate,
-        "venue" : t.venue
     }
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf-8'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    if(response.ok){
-      const responseData = await response.json();
-      console.log("Adding a new tournament with id -->"+t.id + "for response -->"+JSON.stringify(responseData));    
-      const newTournament = { ...t, id: (responseData.id || responseData.data?.id || t.id).toString() };  
-      setTournaments(prev => [...prev, newTournament]);
-      return newTournament;  
-    } 
-    return null; 
-    
+    // Check if tournament with t.id already exists, if so, update it and return the updated tournament
+    const existing = tournaments.find(tournament => tournament.id === newTournament.id);
+    if (existing) {
+      console.log("Tournament already exists , so updating it ");
+      updateTournament(newTournament);
+      return newTournament;
+    }
+    console.log("Adding a new tournament with id -->"+t.id);
+    setTournaments(prev => [...prev, newTournament]);
+    return newTournament;
   };
 
   const updateTournament = (t: Tournament) => {
@@ -173,7 +143,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTournaments(prev => prev.map(item => item.id === t.id ? t : item));
   };
 
-  const addTeam = async (t: Omit<Team, 'id' | 'remainingPurse' | 'playersCount'>) => {
+  const addTeam = (t: Omit<Team, 'id' | 'remainingPurse' | 'playersCount'>) => {
     const newTeam: Team = { 
       ...t, 
       id: Math.floor(8000 + Math.random() * 9000).toString(), 
@@ -182,9 +152,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       logo: t.logo || '' 
     };
     console.log('Adding team with id -->'+ JSON.stringify(newTeam) )
-    const teamId = await addTeamToSheet(newTeam)
-    const teamToAdd: Team = {...newTeam,id:teamId}
-    setTeams(prev => [...prev, teamToAdd]);
+    addTeamToSheet(newTeam)
+    setTeams(prev => [...prev, newTeam]);
   };
 
   const updateTeam = async (updatedTeam: Team) => {
@@ -203,11 +172,10 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteTeam = (id: string) => setTeams(prev => prev.filter(t => t.id !== id));
 
-  const addCategory = async (c: Omit<Category, 'id'>) => {
+  const addCategory = (c: Omit<Category, 'id'>) => {
     const newCategory = { ...c, id: Math.floor(9000 + Math.random() * 9000).toString() };
-    const id = await addCategoryToSheet(newCategory);
-    const categoryToAdd : Category =  {...newCategory,id:id}
-    setCategories(prev => [...prev, categoryToAdd]);
+    addCategoryToSheet(newCategory);
+    setCategories(prev => [...prev, newCategory]);
   };
 
    // Function to add/update category details by calling Google Sheet web API
@@ -217,35 +185,31 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return false;
     }
     try {
-      //const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=updateCategories`;
-      const targetUrl = updateAPIUrl + "/categories"
-      /*const payload = {
+      const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=updateCategories`;
+    
+      const payload = {
         "Category ID": category.id,
         "Category Name": category.name,
         "Base Price": category.basePrice
-      };*/
-      const payload = {        
-        "name": category.name,
-        "base_price": category.basePrice
       };
       console.log("Category ADD URL -->"+targetUrl+" payload -->"+JSON.stringify(payload));
       const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json;charset=utf-8'
+          'Content-Type': 'text/plain;charset=utf-8'
         },
         body: JSON.stringify(payload)
       });
       console.log("Category added to sheet")
-      const responseData = await response.json();
+
       if (!response.ok) {
-        console.warn("Failed to update category in Google Sheet:", response.status);
+        console.warn("Failed to update category in Google Sheet:", response.status, await response.text());
         return false;
       }
-      return responseData.id;
+      return true;
     } catch (error) {
       console.error("Error in addCategoryToSheet:", error);
-      return null;
+      return false;
     }
   };
   // Function to add/update team details by calling Google Sheet web API
@@ -255,9 +219,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return false;
     }
     try {
-      //const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=updateTeams`;
-      const targetUrl = updateAPIUrl+"/teams"
-      /*const payload = {
+      const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=updateTeams`;
+      const payload = {
         "Team ID": team.id,
         "Team Name": team.name,
         "Team Owner": team.owner,
@@ -266,36 +229,26 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         "tournamentId": team.tournamentId,
         "Players": team.playersCount || 0,
         logo: team.logo
-      };*/
-      const payload = {        
-        "tournament_id": team.tournamentId,
-        "name": team.name,
-        "owner": team.owner,
-        "purse_total": team.purse,
-        "purse_remaining": team.remainingPurse,
-        "players_count": team.playersCount || 0,
-        logo : team.logo
-      }
+      };
       console.log("Team ADD URL -->" + targetUrl + " payload -->" + JSON.stringify(payload));
       const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json;charset=utf-8'
+          'Content-Type': 'text/plain;charset=utf-8'
         },
         body: JSON.stringify(payload)
       });
-      const responseData = await response.json();
-      console.log(`Team with id - ${responseData.id} added to sheet`)
+      console.log("Team added to sheet")
 
       if (!response.ok) {
-        console.warn("Failed to update team in Supa DB :", response.status);
+        console.warn("Failed to update team in Google Sheet:", response.status, await response.text());
         return false;
       }
       
-      return responseData.id;
+      return true;
     } catch (error) {
       console.error("Error in addTeamToSheet:", error);
-      return null;
+      return false;
     }
   };
 
@@ -306,9 +259,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return false;
     }
     try {
-      //const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=updatePlayers`;
-      const targetUrl = updateAPIUrl + "/players"
-      /*const payload = {
+      const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=updatePlayers`;
+      const payload = {
         "ID": player.id,
         "Full Name": player.name,
         "price": player.soldPrice || 0,
@@ -319,40 +271,25 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         "tournamentId": player.tournamentId,
         "imageUrl": player.imageUrl || "",
         "mobileNumber": player.mobileNumber || ""
-      };*/
-
-      const profiles = await getProfilesData();
-      //console.log("profiles -->"+JSON.stringify(profiles));
-      const profile = profiles.filter((profile: any) =>
-         profile.name.toLowerCase() === player.profile.toLowerCase())
-      //console.log("Matching profile -->"+JSON.stringify(profile));
-      const payload  = [{  
-        "name": player.name,
-        "price": player.soldPrice || 0,
-        "status": player.status ? player.status.toUpperCase() : "AVAILABLE",
-        "profile_id": profile.id || "d1ed51f7-66b5-4d73-be3c-3dbb600f31cb",
-        "category_id": player.categoryId,        
-        "tournament_id": player.tournamentId,
-        "image_url": player.imageUrl || "",        
-      }];
+      };
       console.log("Player ADD URL -->" + targetUrl + " payload -->" + JSON.stringify(payload));
       const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json;charset=utf-8'
+          'Content-Type': 'text/plain;charset=utf-8'
         },
         body: JSON.stringify(payload)
       });
-      const responseData = await response.json();
-      //console.log("Player added to sheet with id -->"+responseData.id );
+      console.log("Player added to sheet")
+
       if (!response.ok) {
-        console.warn("Failed to update player in Supa DB:", response.status);
-        return null;
+        console.warn("Failed to update player in Google Sheet:", response.status, await response.text());
+        return false;
       }
-      return responseData.id;
+      return true;
     } catch (error) {
       console.error("Error in addPlayerToSheet:", error);
-      return null;
+      return false;
     }
   };
 
@@ -360,7 +297,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 
   const bulkAddCategories = (tournamentId: string, cs: (Omit<Category, 'id'> & { id?: string })[]) => {
-    //console.log("tournamentID in bulkAddCategories --> "+tournamentId);
+    console.log("tournamentID in bulkAddCategories --> "+tournamentId);
     const now = Date.now();
     const newCategories: Category[] = cs.map((c, idx) => ({
       ...c,
@@ -369,7 +306,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
     
 
-    //console.log(`Adding ${newCategories.length} categories for tournamentId - ${tournamentId} in local storage` );
+    console.log(`Adding ${newCategories.length} categories for tournamentId - ${tournamentId} in local storage` );
     //setCategories(newCategories);
      setCategories(prev => {
        const otherTournamentCategories = prev.filter(c => c.tournamentId !== tournamentId);
@@ -379,7 +316,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteCategory = (id: string) => setCategories(prev => prev.filter(c => c.id !== id));
 
-  const addPlayer = async (p: Omit<Player,'id'>) => {
+  const addPlayer = (p: Omit<Player,'id'>) => {
     const newPlayer: Player = { ...p, 
       //id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, 
       id:Math.floor(1000 + Math.random() * 9000).toString(),
@@ -387,10 +324,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       soldToTeamId: p.soldToTeamId || '',
       soldPrice: p.soldPrice || 0
     };
-    console.log(`player to add -> ${JSON.stringify(newPlayer)}`);
-    const playerId = await addPlayerToSheet(newPlayer);
-    const playerToAdd : Player = {...newPlayer,id:playerId}
-    setPlayers(prev => [...prev, playerToAdd]);
+      addPlayerToSheet(newPlayer);
+    setPlayers(prev => [...prev, newPlayer]);
   };
 
   const updatePlayer = async (updatedPlayer: Player) => {
@@ -457,7 +392,82 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deletePlayer = (id: string) => setPlayers(prev => prev.filter(p => p.id !== id));
 
-  
+  //TODO - update the below code to get data from googlesheet webapi
+  const refreshPlayersFromSheet = async (tournamentId: string) => {
+    setIsSyncing(true);
+    try {
+      const idMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      const exportUrl = idMatch ? `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=xlsx` : sheetUrl;
+      
+      const response = await fetch(exportUrl);
+      if (!response.ok) throw new Error('Failed to fetch sheet');
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+      
+      const pSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'sheet1');
+      const cSheet = wb.SheetNames.find((name: string) => name.toLowerCase() === 'categories');
+
+      if (!pSheet) throw new Error('Sheet1 not found');
+
+      const categoryMap = new Map<string, string>();
+      if (cSheet) {
+        const cRows = XLSX.utils.sheet_to_json(wb.Sheets[cSheet]);
+        cRows.forEach((row: any) => {
+          const name = (row['Category Name'] || row['Category name'] || '').toString().toLowerCase().trim();
+          const id = (row['Category ID'] || row['category id'] || row['ID'] || '').toString();
+          if (name && id) categoryMap.set(name, id);
+        });
+      }
+
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[pSheet]);
+      const now = Date.now();
+      const playersFromSheet = rows.map((row: any, idx: number) => {
+        const catName = (row['Category'] || row['category'] || '').toString().toLowerCase().trim();
+        const categoryId = categoryMap.get(catName) || '';
+        
+        let profile = PlayerProfile.BATSMAN;
+        const pStr = (row['Profile'] || row['profile'] || '').toString().toLowerCase();
+        if (pStr.includes('bowl')) profile = PlayerProfile.BOWLER;
+        else if (pStr.includes('all') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
+        else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
+
+        const sheetPlayerId = (row['id'] || row['ID'] || '').toString();
+        const sheetStatusRaw = (row['status'] || row['Status'] || 'AVAILABLE').toString().toUpperCase();
+        let status = PlayerStatus.AVAILABLE;
+        if (sheetStatusRaw === 'SOLD') status = PlayerStatus.SOLD;
+        if (sheetStatusRaw === 'UNSOLD') status = PlayerStatus.UNSOLD;
+
+        const soldToTeam = (row['Team'] || row['team'] || '').toString();
+        let matchedTeamId = '';
+          const matchedTeam = teams.find((t: any) => t.name === (soldToTeam));
+          if (matchedTeam) matchedTeamId = matchedTeam.id;
+
+
+
+        return {
+          id: sheetPlayerId || `player-${now}-${idx}`,
+          tournamentId: tournamentId,
+          sheetId: sheetPlayerId,
+          name: (row['Full Name'] || row['full name'] || 'Unknown Player').toString(),
+          mobileNumber: '',
+          categoryId,
+          profile,
+          imageUrl: (row['imageUrl'] || ''),
+          status,
+          soldToTeamId : matchedTeamId,
+          soldPrice : (row['price'] || row['Price'] || 0)
+        };
+      }).filter(p => p.name !== 'Unknown Player');
+
+      bulkAddPlayers(tournamentId, playersFromSheet);
+      console.log("Players refreshed from sheet successfully.");
+    } catch (err) {
+      console.error("Error refreshing players:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const placeBid = (bidData: Omit<Bid, 'id' | 'timestamp'>): string | null => {
     const team = teams.find(t => t.id === bidData.teamId);
@@ -480,17 +490,6 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return null;
   };
 
-  const getProfilesData = async () : Promise<any>  => {
-    const targetUrl = updateAPIUrl+"/profiles";
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json;charset=utf-8' },
-    });
-    if (!response.ok) throw new Error('Failed to fetch profiles from API');
-    const responseData = await response.json();
-    return responseData;
-
-  };
 
   const getPlayersTeamWiseFromAPI = async (teamId : string, tournamentId:string): Promise<Player[]> =>{
   
@@ -539,10 +538,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }// getPlayersTeamWiseFromAPI
 
   const getTeamsFromSheetAPI = async (): Promise<Team[]> => {
-    const baseAPIUrl = updateAPIUrl;
-    let teamsUrl = baseAPIUrl + "/teams";
-    //const baseUrl = updateUrl || DEFAULT_UPDATE_URL;
-    //let teamsUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getTeams`;
+    const baseUrl = updateUrl || DEFAULT_UPDATE_URL;
+    let teamsUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getTeams`;
     
     console.log(`Fetching teams from: ${teamsUrl}`);
     
@@ -552,7 +549,9 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         method: 'GET',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       });
-      
+    
+    
+    
     if (!response.ok) throw new Error('Failed to fetch teams from API');
     
     const responseData = await response.json();
@@ -562,26 +561,26 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let teams: Team[] = [];
     if (Array.isArray(responseData)) {
       teams = responseData.map((team: any, idx: number) => ({
-        id: ( team['id'] || team.id || team['Team ID'] || team['Team id'] || team.ID || `team-${idx}`).toString(),
+        id: (team.id || team['Team ID'] || team['Team id'] || team.ID || `team-${idx}`).toString(),
         name: (team.name || team['Team Name'] || team['team name'] || 'Unknown Team').toString(),
         owner: (team.owner || team['Team owner'] || team['Team Owner'] || 'N/A').toString(),
-        purse: parseFloat( team['purse_total'] || team.purse || team.Purse || team.purse || '100'),
-        remainingPurse : parseFloat( team['purse_remaining'] || team['Remaining Purse value'] || team['remaining purse value'] || '100'),
-        tournamentId:(team['tournament_id']|| team.tournamentId || team['tournamentId'] || team['tournamentID'] || '1').toString(),
-        playersCount: parseInt(team['players_count'] || team.Players || team.players || team.playersCount || '0'),
+        purse: parseFloat(team.purse || team.Purse || team.purse || '100'),
+        remainingPurse : parseFloat(team['Remaining Purse value'] || team['remaining purse value'] || '100'),
+        tournamentId:(team.tournamentId || team['tournamentId'] || team['tournamentID'] || '1').toString(),
+        playersCount: parseInt(team.Players || team.players || team.playersCount || '0'),
         logo: (team.logo || team['logo'] || '')
       }));
     } else if (responseData && typeof responseData === 'object') {
       // Handle object with teams array
       const teamsArray = responseData.teams || responseData.data || responseData.items || [];
       teams = teamsArray.map((team: any, idx: number) => ({
-        id: ( team['id'] || team.id || team['Team ID'] || team['Team id'] || team.ID || `team-${idx}`).toString(),
+        id: (team.id || team['Team ID'] || team['Team id'] || team.ID || `team-${idx}`).toString(),
         name: (team.name || team['Team Name'] || team['team name'] || 'Unknown Team').toString(),
         owner: (team.owner || team['Team owner'] || team['Team Owner'] || 'N/A').toString(),
-        purse: parseFloat( team['purse_total'] || team.purse || team.Purse || team.purse || '100'),
-        remainingPurse : parseFloat( team['purse_remaining'] || team['Remaining Purse value'] || team['remaining purse value'] || '100'),
-        tournamentId:(team['tournament_id']|| team.tournamentId || team['tournamentId'] || team['tournamentID'] || '1').toString(),
-        playersCount: parseInt(team['players_count'] || team.Players || team.players || team.playersCount || '0'),
+        purse: parseFloat(team.purse || team.Purse || team.purse || '100'),
+        remainingPurse : parseFloat(team['Remaining Purse value'] || team['remaining purse value'] || '100'),
+        tournamentId:(team.tournamentId|| team['tournamentId']|| team['tournamentID']|| '1').toString(),
+        playersCount: parseInt(team.Players || team.players || team.playersCount || '0'),
         logo: (team.logo || team['logo'] || '')
       }));
     }
@@ -609,9 +608,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     try {
       setIsSyncing(true);
-      
-      const targetUrl = updateAPIUrl + "/players";
-      //const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=getPlayers`;
+      const targetUrl = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}action=getPlayers`;
       const response = await fetch(targetUrl, {
         method: 'GET',
         headers: {
@@ -627,12 +624,97 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (Array.isArray(responseData)) {
         //console.log("In Array.isArray(responseData)")
         players = responseData.map((player: any, idx: number) => {
-          return getResponsePlayer(player,idx);
+          console.log("in responseData.map -->"+JSON.stringify(player));  
+          //set profile value
+          let profile = PlayerProfile.BATSMAN;
+          const pStr = player['Profile'].toString().toLowerCase();
+          if (pStr.includes('bowl')) profile = PlayerProfile.BOWLER;
+          else if (pStr.includes('all') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
+          else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
+
+          //set status value 
+          let status = PlayerStatus.AVAILABLE;
+          if (player.status === 'sold') status = PlayerStatus.SOLD;
+          if (player.status === 'unsold') status = PlayerStatus.UNSOLD;
+
+          // set teamId 
+          let matchedTeamId = '';
+          const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
+          if (matchedTeam) matchedTeamId = matchedTeam.id;
+
+          //set categoryId
+          const playerCategory = categories.find((cat:any) => cat.name === player['Category'])
+          const playerCategoryId = playerCategory.id;
+
+          let responsePlayer : Player = {  
+          id: (player.id || player['ID'] || `player-${idx}`).toString(),
+          name: (player.name || player['Full Name'] || player['full name'] || 'Unknown Player').toString(),
+          soldPrice: parseFloat(player.price || player.soldPrice || '0'),
+          soldToTeamId: matchedTeamId,
+          status: status,
+          profile: profile,
+          categoryId: ( playerCategoryId || player.categoryId || player['categoryId'] || ''),
+          tournamentId: (player.tournamentId || player['tournamentId'] || '').toString(),
+          sheetId: player.sheetId || undefined,
+          mobileNumber: player.mobileNumber || '',
+          imageUrl: (player.imageUrl || player['imageUrl'] ||  ''),
+          };
+          console.log("reponse players -->"+JSON.stringify(responsePlayer))
+          return responsePlayer;
         });
       } else if (responseData && typeof responseData === 'object') {
         const playersArray = responseData.players || responseData.data || responseData.items || [];
         players = playersArray.map((player: any, idx: number) => {              
-          return getResponsePlayer(player,idx);
+          //set profile value
+          let profile = PlayerProfile.BATSMAN;
+          const pStr = player['Profile'].toString().toLowerCase();          
+          if (pStr.includes('owl')) profile = PlayerProfile.BOWLER;
+          else if (pStr.includes('ll') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
+          else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
+
+          //set status value         
+          let status = PlayerStatus.AVAILABLE;
+          if (player['Status'] === 'sold') status = PlayerStatus.SOLD;
+          if (player['Status'] === 'unsold') status = PlayerStatus.UNSOLD;
+          
+          
+          // set teamId 
+          let matchedTeamId = '';
+          const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));
+          
+          if (matchedTeam) {            
+              matchedTeamId = matchedTeam.id;                      
+          }
+
+          //set categoryId
+          let playerCategoryId = '';
+          const playerCategory = categories.find((cat:any) => cat.name === player['Category'])
+          if(!playerCategory){
+            console.log(`categories from cache --> ${JSON.stringify(categories)}`);
+            console.log(`Cannot find category for player and categoryId --> ${player['Category']} and name --> ${player['Full Name']}`);
+          }else {
+            playerCategoryId = playerCategory.id; 
+          }
+          
+          
+          //console.log(`Player ${player['Full Name']} , sold to team - ${(player['Team'] || player.team)}, teamId - ${matchedTeamId}`)
+          
+          let responsePlayer: Player = {
+          
+          id: (player.id || player['ID'] || `player-${idx}`).toString(),
+          name: (player.name || player['Full Name'] || player['full name'] || 'Unknown Player').toString(),
+          soldPrice: parseFloat(player.price || player.soldPrice || '0'),
+          soldToTeamId: matchedTeamId,
+          status: status,
+          profile,
+          categoryId: (playerCategoryId ||player.categoryId || player['categoryId'] || ''),
+          category: (player['Category'] || ''),
+          tournamentId:  (player['tournamentId']).toString(),
+          sheetId: player.sheetId || undefined,
+          mobileNumber: player.mobileNumber || '',
+          imageUrl: (player.imageUrl || player['imageUrl'] || ''),
+          } //playerResponse
+          return responsePlayer;
         });//map
       }
 
@@ -653,67 +735,9 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const getResponsePlayer = (player : any, idx :any) => {
-    //set profile value
-    let profile = PlayerProfile.BATSMAN;
-    let pStr = '';
-    if(player['cricket_profiles']){
-      pStr = player['cricket_profiles']['name'];
-      console.log('cricketProfile -->'+pStr);
-      //const pStr = player['Profile'].toString().toLowerCase();
-      if (pStr.includes('bowl')) profile = PlayerProfile.BOWLER;
-      else if (pStr.includes('all') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
-      else if (pStr.includes('wk') || pStr.includes('keep')) profile = PlayerProfile.WK_BATSMAN;
-  
-    }
-    
-    //set status value 
-    let status = PlayerStatus.AVAILABLE;
-    if (player.status.toLowerCase() === 'sold') status = PlayerStatus.SOLD;
-    if (player.status.toLowerCase() === 'unsold') status = PlayerStatus.UNSOLD;
-
-    // set teamId 
-    let matchedTeamId = '';
-    let soldPrice = 0;
-    //const matchedTeam = teams.find((t: any) => t.name === (player.team || player['Team']));    
-    //if (matchedTeam) matchedTeamId = matchedTeam
-    if (player['team_players'] && player['team_players'].length > 0) {
-      const team_player = player['team_players'][0];
-      if (team_player && team_player['team_id']) {
-        matchedTeamId = team_player['team_id'];
-        soldPrice = team_player['price'];        
-      }
-    }
-
-    //set categoryId
-    let playerCategoryId = '';
-    //const playerCategory = categories.find((cat:any) => cat.name === player['Category'])
-    //playerCategoryId = playerCategory.id;
-    if(player['categories']){
-      playerCategoryId = player['categories']['id']      
-    }
-    
-    let responsePlayer : Player = {  
-    id: (player.id || player['ID'] || `player-${idx}`).toString(),
-    name: (player.name || player['Full Name'] || player['full name'] || 'Unknown Player').toString(),
-    soldPrice: parseFloat(soldPrice || player.price || player.soldPrice || '0'),
-    soldToTeamId: matchedTeamId,
-    status: status,
-    profile: profile,
-    categoryId: ( playerCategoryId || player.categoryId || player['categoryId'] || ''),
-    tournamentId: (player['tournament_id'] || player.tournamentId || player['tournamentId'] || '').toString(),
-    sheetId: player.sheetId || undefined,
-    mobileNumber: player.mobileNumber || '',
-    imageUrl: (player['image_url']|| player.imageUrl || player['imageUrl'] ||  ''),
-    };    
-    return responsePlayer;
-  }
-
-
   const syncPlayerToCloud = async (player: Player, teamIdForSync?: string, finalPrice?: number): Promise<boolean> => {
-    //const baseUrl = updateUrl || DEFAULT_UPDATE_URL;
-    //const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=auctionPlayer`;
-    const targetUrl = updateAPIUrl + "/auction"
+    const baseUrl = updateUrl || DEFAULT_UPDATE_URL;
+    const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=auctionPlayer`;
     setIsSyncing(true);
     try {
       const cleanId = isNaN(Number(player.id)) ? player.id : Number(player.id);
@@ -727,17 +751,11 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       console.log("Bid logs -->"+bidText);
   
-      /*const payload = {
+      const payload = {
         "id": cleanId,
         "price": finalPrice || 0,
         "teamId": cleanTeamId,
         "status": player.status.toLowerCase(),
-        "bid": bidText
-      };*/
-      const payload = {
-        "playerId": player.id,
-        "price": finalPrice || 0,
-        "teamId": teamIdForSync,
         "bid": bidText
       };
 
@@ -745,7 +763,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const response = await fetch(targetUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json;charset=utf-8' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
 
@@ -766,7 +784,6 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  //TODO change the name to auction player
   const finalizePlayer = async (playerId: string, status: PlayerStatus, teamId?: string, amount?: number): Promise<boolean> => {
     const player = players.find(p => p.id === playerId);
     if (!player) return false;
@@ -806,23 +823,19 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 const getTournamentDetailsFromAPI = async (tournamentId:String): Promise<Tournament[]> => {
 
   let currentTid = tournamentId;
-
-  const baseAPIUrl = updateAPIUrl;
-  const targetUrl = baseAPIUrl+"/tournaments";  
-  //const baseUrl = updateUrl ;
-  //const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getTournaments`;
+  const baseUrl = updateUrl ;
+      
+  const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getTournaments`;
+  //console.log("TargetURL to get tournament details -->"+targetUrl);
   const tournamentResponse =  await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-  });   
-
-  console.log('fetching tournaments from  -->'+targetUrl);
-
+  }); 
   let updatedTournamentMap : Tournament[] = [];    
   if (tournamentResponse.ok) {
     const response = await tournamentResponse.json();
-    //const tournaments = response.data;
-    const tournaments = response;
+    const tournaments = response.data;
+          
     let tData : Tournament ;
     
     if (Array.isArray(tournaments) && tournaments.length > 0) {
@@ -831,13 +844,12 @@ const getTournamentDetailsFromAPI = async (tournamentId:String): Promise<Tournam
       tData = {
               name: (row['name'] || row['Name'] || 'New Tournament').toString(),
               venue: (row['place'] || row['Place'] || 'Unknown Venue').toString(),
-              auctionDate: (row['auctionDate'] || row['auction Date'] ||row['created_at'] || new Date().toISOString().split('T')[0]).toString(),
-              numberOfTeams: parseInt(row['No. of teams'] || row['no. of teams'] || row['numberOfTeams'] ||row['no_of_teams'] || '8'),
-              playersPerTeam: parseInt(row['Players per team'] || row['players per team'] || row['playersPerTeam'] || row['players_per_team']|| '15'),
-              sheetId: (row['tournament ID'] || row['tournament id'] || row['sheetId'] || row['id'] || '').toString(),
+              auctionDate: (row['auctionDate'] || row['auction Date'] || new Date().toISOString().split('T')[0]).toString(),
+              numberOfTeams: parseInt(row['No. of teams'] || row['no. of teams'] || row['numberOfTeams'] || '8'),
+              playersPerTeam: parseInt(row['Players per team'] || row['players per team'] || row['playersPerTeam'] || '15'),
+              sheetId: (row['tournament ID'] || row['tournament id'] || row['sheetId'] || '').toString(),
               id: (row['Tournament ID'] || row['tournament Id'] || row['tournamentId'] || row['id']).toString()
       };
-      console.log(`printing tdata after conversion --> ${JSON.stringify(tData)}`)
       updatedTournamentMap.push(tData);
       
       }); //map 
@@ -847,15 +859,8 @@ const getTournamentDetailsFromAPI = async (tournamentId:String): Promise<Tournam
 } //getTournamentDetailsFromAPI
 
 const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Category[]> => {
-  
-  const baseAPIUrl = updateAPIUrl;
-  const targetUrl = baseAPIUrl+"/categories";
-  
-  //const baseUrl = updateUrl;
-  //const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getCategories${tournamentId ? `&tournamentId=${tournamentId}` : ''}`;
-
-  console.log('fetching Categories from -->'+targetUrl);
-
+  const baseUrl = updateUrl;
+  const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getCategories${tournamentId ? `&tournamentId=${tournamentId}` : ''}`;
   const catResponse = await fetch(targetUrl, {
     method: 'GET',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -863,20 +868,16 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
   let updatedCatMap: Category[] = [];
   if (catResponse.ok) {
     const response = await catResponse.json();
-    //const catArr = response.data;
-    const catArr = response;
+    const catArr = response.data;
     if (Array.isArray(catArr) && catArr.length > 0) {
       catArr.forEach((row) => {
         const cData: Category = {
-          id: (row['id'] || row['Category ID'] || row['categoryID'] || row['category id'] ).toString(),
+          id: (row['Category ID'] || row['categoryID'] || row['category id'] || row['id']).toString(),
           sheetId: (row['sheetId'] || row['Sheet ID'] || row['sheet ID'] || '').toString(),
           tournamentId: (tournamentId || row['torunamentId'] || ''),
-          name: ( row['name']|| row['Category Name'] || row['categoryName'] || 'Unknown Category').toString(),
-          basePrice : (row['base_price']|| row['Base Price'] || row['basePrice']|| 0)
+          name: (row['Category Name'] || row['categoryName'] || 'Unknown Category').toString(),
+          basePrice : (row['Base Price'] || row['basePrice']|| 0)
         };
-
-        //console.log(`Adding category --> ${JSON.stringify(cData)}`)
-
         updatedCatMap.push(cData);
       });
     }
@@ -915,7 +916,7 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
       addTournament, updateTournament, addTeam, bulkAddTeams, deleteTeam,
       addCategory, bulkAddCategories, deleteCategory, addPlayer, updatePlayer, bulkAddPlayers, deletePlayer,
       placeBid, finalizePlayer, getTournamentData,
-      updateTeam,
+      refreshPlayersFromSheet, updateTeam,
       getTeamsFromSheetAPI,
       getPlayersTeamWiseFromAPI,
       getTournamentDetailsFromAPI,

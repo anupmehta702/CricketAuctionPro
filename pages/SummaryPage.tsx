@@ -13,7 +13,8 @@ declare const XLSX: any;
 
 const SummaryPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const { getTournamentData, sheetUrl, updateUrl,getPlayersTeamWiseFromAPI,getTeamsFromSheetAPI } = useAuction();
+  const { getTournamentData, sheetUrl, updateUrl,
+    getPlayersTeamWiseFromAPI,getTeamsFromSheetAPI,getPlayersFromSheetAPI } = useAuction();
   const data = getTournamentData(tournamentId || '');
   const [fetchedTeams, setFetchedTeams] = useState<Team[]>([]);
   const [teamPlayers, setTeamPlayers] = useState<Record<string, FetchedPlayer[]>>({});
@@ -46,10 +47,19 @@ const SummaryPage: React.FC = () => {
       // 2. For each teamId, hit the API to get players and team details
       let playersMap: Record<string, Player[]> = {};
       const updatedTeamsMap: Record<string, Team & { spent?: number, remaining?: number }> = {};
+      const players: Player[] = await getPlayersFromSheetAPI(tournamentId);
+      players.map((player) => {
+          if(player.soldToTeamId){
+              const existingPlayersForTeam = playersMap[player.soldToTeamId];
+              existingPlayersForTeam.push(player);
+              playersMap[player.soldToTeamId] = existingPlayersForTeam;
+          }
+      })
+
 
       await Promise.all(teams.map(async (team) => {
         //get team wise player details from Web api
-        playersMap[team.id] = await getPlayersTeamWiseFromAPI(team.id, team.tournamentId);
+        //playersMap[team.id] = await getPlayersTeamWiseFromAPI(team.id, team.tournamentId);
 
         updatedTeamsMap[team.id] = {
           ...team,
@@ -275,7 +285,7 @@ const SummaryPage: React.FC = () => {
                         <div className="text-left">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-bold text-white">
-                              {playerId ? <span className="text-blue-500 mr-2 font-display">#{playerId}</span> : null}
+                              {playerId ? <span className="text-blue-500 mr-2 font-display">#</span> : null}
                               {playerName}
                             </p>
                           </div>

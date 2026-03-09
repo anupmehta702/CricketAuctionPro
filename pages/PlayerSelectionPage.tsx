@@ -9,7 +9,7 @@ const PlayerSelectionPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const navigate = useNavigate();
   const { getTournamentData, players, categories, isSyncing,
-     refreshPlayersFromSheet,getPlayersFromSheetAPI,bulkAddPlayers } = useAuction();
+     getPlayersFromSheetAPI,bulkAddPlayers } = useAuction();
   const data = getTournamentData(tournamentId || '');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   //const [loading, setLoading] = useState(true);

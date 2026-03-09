@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
 import { PlayerProfile, PlayerStatus } from '../types';
 import DefaultLogo from '../src/assets/default-logo.png';
-import teamsImages from '../src/assets/teams/index.js'
+//import teamsImages from '../src/assets/teams/index.js'
 
 declare const XLSX: any;
 
@@ -119,15 +119,20 @@ const AdminSetup: React.FC = () => {
     }
   }, [data.tournament]);
 
-  const handleTournamentSubmit = (e: React.FormEvent) => {
+  const handleTournamentSubmit = async (e: React.FormEvent) => {   
     e.preventDefault();
-    if (tournamentId) {
+    if (tournamentId !== 'undefined') {      
       updateTournament({ ...tournamentForm, id: tournamentId });
       setActiveStep(Step.TEAMS);
     } else {
-      const newT = addTournament(tournamentForm);
-      navigate(`/admin/${newT.id}`);
-      setActiveStep(Step.TEAMS);
+      const newT = await addTournament(tournamentForm);
+      if(newT){
+        navigate(`/admin/${newT.id}`);
+        setActiveStep(Step.TEAMS);
+      }else {
+        throw Error('Cannot add tournament !');
+      }
+        
     }
   };
 
@@ -157,8 +162,8 @@ const AdminSetup: React.FC = () => {
       let tournamentMap = await getTournamentDetailsFromAPI(tournamentId);
       let currentTid = tournamentId;
       if(tournamentMap.length > 0) {
-        tournamentMap.map((tournament) => {
-          const newT = addTournament(tournament);            
+        tournamentMap.map(async (tournament) => {
+          const newT = await addTournament(tournament);            
           currentTid = newT.id;      
           if(!tournamentId){
             navigate(`/admin/${newT.id}`);
@@ -336,7 +341,7 @@ const AdminSetup: React.FC = () => {
                     <img src={team.logo || DefaultLogo} alt={team.name} className="w-12 h-12 rounded-xl object-cover bg-white/10" />
                     <div>
                       <h3 className="font-bold text-sm">
-                        <span className="text-blue-400 mr-2 text-[10px]">#{team.id}</span>
+                        <span className="text-blue-400 mr-2 text-[10px]">#</span>
                         {team.name}
                       </h3>
                       <p className="text-[10px] text-slate-400">Owner: {team.owner}</p>
@@ -376,7 +381,7 @@ const AdminSetup: React.FC = () => {
                 <div key={cat.id} className="glass-card rounded-xl p-4 flex items-center justify-between border border-white/5">
                   <div>
                     <p className="font-bold font-display text-lg">
-                      <span className="text-blue-400 mr-2 text-xs">#{cat.id}</span>
+                      <span className="text-blue-400 mr-2 text-xs">#</span>
                       {cat.name}
                     </p>
                     <p className="text-xs text-yellow-500 font-bold">Base: ₹{cat.basePrice} Cr</p>
@@ -431,7 +436,7 @@ const AdminSetup: React.FC = () => {
                   <img src={p.imageUrl || DefaultLogo} alt={p.name} className="w-10 h-10 rounded-full object-cover bg-white/10" />
                     <div>
                       <p className="text-sm font-bold text-white">
-                        <span className="text-blue-400 mr-2 font-display">#{p.id}</span>
+                        <span className="text-blue-400 mr-2 font-display">#</span>
                         {p.name}
                       </p>
                       <p className="text-[10px] text-slate-400">{p.profile} • {data.categories.find(c => c.id === p.categoryId)?.name}</p>

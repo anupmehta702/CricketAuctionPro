@@ -18,3 +18,6 @@ View your app in AI Studio: https://ai.studio/apps/18952fd0-a7bb-4e62-be1b-ced47
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+4. TO run backend ,cd backend  && npm start
+5. TO know the URL on which this app is loaded type env and check for WEB_HOST parameter
+6. Ctrl+Shft+P for palette and type generate active tokens to get authorization bearer token for testing API via postman
