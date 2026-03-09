@@ -1,8 +1,13 @@
+const cors = require('cors');
+
 require('dotenv').config({ path: '../.env' });
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 
+
 const app = express();
+app.use(cors({ origin: '*' }));
+app.use(express.json());
 const port = process.env.PORT || 3001;
 
 // Supabase initialization
@@ -20,7 +25,7 @@ app.get('/', (req, res) => {
 app.get("/players", async (req, res) => {
   const { data, error } = await supabase
     .from("players")
-    .select("*, categories(id,name,base_price), cricket_profiles(id,name)");
+    .select("*, categories(id,name,base_price), cricket_profiles(id,name),team_players(id,team_id,price)");
 
   if (error) {
     console.error('Error fetching players:', error);
@@ -34,13 +39,14 @@ app.get("/players", async (req, res) => {
 app.post("/players", async (req, res) => {
   const { data, error } = await supabase
     .from("players")
-    .insert(req.body);
+    .insert(req.body)
+    .select();
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  res.status(200).json(data || { success: true });
+  res.status(200).json(data && data.length > 0 ? data[0] : { success: true });
 });
 
 //Update PLayer
@@ -74,14 +80,15 @@ app.delete("/players/:id", async (req, res) => {
 
 //Auction player
 app.post("/auction", async (req, res) => {
-
-  const { playerId, teamId, price } = req.body;
+  console.log(`request body for auction API -> ${JSON.stringify(req.body)}`)
+  const { playerId, teamId, price, bid } = req.body;
 
   // add player to team
   await supabase.from("team_players").insert({
     team_id: teamId,
     player_id: playerId,
-    price: price
+    price: price,
+    bid: bid
   });
 
   // update player status
@@ -92,14 +99,15 @@ app.post("/auction", async (req, res) => {
   // reduce purse
   const { data: team } = await supabase
     .from("teams")
-    .select("purse_remaining")
+    .select("players_count,purse_remaining")
     .eq("id", teamId)
     .single();
 
   await supabase
     .from("teams")
     .update({
-      purse_remaining: team.purse_remaining - price
+      purse_remaining: team.purse_remaining - price,
+      players_count: team.players_count + 1
     })
     .eq("id", teamId);
 
@@ -122,11 +130,11 @@ app.get('/teams', async (req, res) => {
 
 // API to create a new team
 app.post('/teams', async (req, res) => {
-  const { data, error } = await supabase.from('teams').insert(req.body);
+  const { data, error } = await supabase.from('teams').insert(req.body).select();
   if (error) {
     return res.status(500).json({ error: error.message });
   }
-  res.status(200).json(data || { success: true });
+  res.status(200).json(data && data.length > 0 ? data[0] : { success: true });
 });
 
 // API to update a team
@@ -166,11 +174,11 @@ app.get('/categories', async (req, res) => {
 
 // API to create a new category
 app.post('/categories', async (req, res) => {
-  const { data, error } = await supabase.from('categories').insert(req.body);
+  const { data, error } = await supabase.from('categories').insert(req.body).select();
   if (error) {
     return res.status(500).json({ error: error.message });
   }
-  res.status(200).json(data || { success: true });
+  res.status(200).json(data && data.length > 0 ? data[0] : { success: true });
 });
 
 // API to update a category
@@ -209,11 +217,11 @@ app.get('/tournaments', async (req, res) => {
 
 // API to create a new tournament
 app.post('/tournaments', async (req, res) => {
-  const { data, error } = await supabase.from('tournaments').insert(req.body);
+  const { data, error } = await supabase.from('tournaments').insert(req.body).select();
   if (error) {
     return res.status(500).json({ error: error.message });
   }
-  res.status(200).json(data || { success: true });
+  res.status(200).json(data && data.length > 0 ? data[0] : { success: true });
 });
 
 // API to update a tournament
@@ -225,7 +233,7 @@ app.put('/tournaments/:id', async (req, res) => {
   if (error) {
     return res.status(500).json({ error: error.message });
   }
-  res.status(200).json(data || { success: true });
+  res.status(200).json(_data || { success: true });
 });
 
 // API to delete a tournament
@@ -239,6 +247,20 @@ app.delete('/tournaments/:id', async (req, res) => {
   }
   res.status(200).json(data || { success: true });
 });
+//----------------------------------------------------------------------------------
+app.get("/profiles", async (req, res) => {
+  const { data, error } = await supabase
+    .from("cricket_profiles")
+    .select("*");
+
+  if (error) {
+    console.error('Error fetching players:', error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.status(200).json(data || { success: true });
+});
+
 
 
 if (process.env.NODE_ENV !== 'test') {
