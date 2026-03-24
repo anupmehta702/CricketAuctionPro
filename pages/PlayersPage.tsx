@@ -6,86 +6,13 @@ import { Player, PlayerStatus, PlayerProfile, Category, Team } from '../types';
 import BottomNav from '../components/BottomNav';
 import PlayerCard from '../components/PlayerCard';
 import PlayerListItem from '../components/PlayerListItem';
+import EditPlayerModal from '../components/EditPlayerModal';
 
 // Define an enum for view modes
 enum ViewMode {
   CARD = 'CARD',
   LIST = 'LIST'
 }
-
-interface EditPlayerModalProps {
-  player: Player;
-  onUpdate: (updatedData: any) => void;
-  onCancel: () => void;
-  categories: Category[];
-  teams: Team[];
-}
-
-const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, onUpdate, onCancel, categories, teams }) => {
-  const [formData, setFormData] = useState({ ...player });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Edit Player</h2>
-        <div className="flex justify-center mb-4">
-          <div className="w-24 h-24 rounded-full bg-slate-700 border-2 border-slate-600 overflow-hidden flex items-center justify-center">
-            {player.imageUrl ? (
-              <img src={player.imageUrl} alt={player.name} className="w-full h-full object-cover" />
-            ) : (
-              <iconify-icon icon="lucide:user" className="text-4xl text-slate-500" />
-            )}
-          </div>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Full Name</label>
-            <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Category</label>
-            <select name="categoryId" value={formData.categoryId} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2">
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Team</label>
-            <select name="soldToTeamId" value={formData.soldToTeamId || ''} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2">
-              <option value="">-- No Team --</option>
-              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Price</label>
-            <input type="number" name="soldPrice" value={formData.soldPrice || ''} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Profile</label>
-            <select name="profile" value={formData.profile} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2">
-              {Object.values(PlayerProfile).map(profile => (
-                <option key={profile} value={profile}>{profile}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex justify-end gap-4">
-            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-md bg-blue-600">Update</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 const PlayersPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();

@@ -5,10 +5,11 @@ import { useAuction } from '../context/AuctionContext';
 
 const LogoutButton: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuction();
+  const { user, flushLocalStorage } = useAuction();
 
   const handleLogout = async () => {
     await signOut();
+    flushLocalStorage();
     navigate('/login');
   };
 

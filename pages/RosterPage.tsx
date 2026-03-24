@@ -2,72 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuction } from '../context/AuctionContext';
-import { PlayerStatus, PlayerProfile, Team, Player } from '../types';
+import { PlayerStatus, Team, Player } from '../types';
 import BottomNav from '../components/BottomNav';
 import PlayerCard from '../components/PlayerCard';
 import PlayerListItem from '../components/PlayerListItem';
+import EditPlayerModal from '../components/EditPlayerModal';
+import EditTeamModal from '../components/EditTeamModal';
 
 // Define an enum for view modes
 enum ViewMode {
   CARD = 'CARD',
   LIST = 'LIST'
 }
-
-interface EditTeamModalProps {
-  team: Team;
-  onUpdate: (updatedData: any) => void;
-  onCancel: () => void;
-}
-
-const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, onUpdate, onCancel }) => {
-  const [formData, setFormData] = useState({ ...team });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Edit Team</h2>
-        {team.logo && (
-            <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-2 border-slate-600">
-              <img src={team.logo} alt={`${team.name} logo`} className="w-full h-full object-cover" />
-            </div>
-        )}
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Team Name</label>
-            <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Team Owner</label>
-            <input type="text" name="owner" value={formData.owner} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Purse</label>
-            <input type="number" name="purse" value={formData.purse} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Remaining Purse</label>
-            <input type="number" name="remainingPurse" value={formData.remainingPurse} onChange={handleChange} className="w-full bg-slate-700 rounded-md p-2" />
-          </div>
-          <div className="flex justify-end gap-4">
-            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-slate-600">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-md bg-blue-600">Update</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 
 const RosterPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -149,6 +95,11 @@ const RosterPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+           {user?.isAdmin && (
+              <button onClick={() => handleEditTeam(activeTeam)} className="p-2 rounded-md bg-white/5">
+                <iconify-icon icon="lucide:edit" className="text-base" />
+              </button>
+            )}
             <button onClick={() => setViewMode(ViewMode.LIST)} className={`p-2 rounded-md ${viewMode === ViewMode.LIST ? 'bg-blue-600/50' : 'bg-white/5'}`}> <iconify-icon icon="lucide:list" className="text-base" /> </button>
             <button onClick={() => setViewMode(ViewMode.CARD)} className={`p-2 rounded-md ${viewMode === ViewMode.CARD ? 'bg-blue-600/50' : 'bg-white/5'}`}> <iconify-icon icon="lucide:layout-grid" className="text-base" /> </button>
           </div>
@@ -208,6 +159,16 @@ const RosterPage: React.FC = () => {
           team={editingTeam} 
           onUpdate={handleUpdateTeam}
           onCancel={handleCancelEdit}
+        />
+      )}
+
+      {editingPlayer && (
+        <EditPlayerModal 
+          player={editingPlayer} 
+          onUpdate={handleUpdatePlayer}
+          onCancel={handleCancelEdit}
+          categories={categories}
+          teams={data.teams}
         />
       )}
 

@@ -148,18 +148,18 @@ const AdminSetup: React.FC = () => {
     }
   };
 
-  const syncMasterFromGoogleSheet = async () => {
+  const getDataFromDB = async () => {
     setIsSyncing(true);
-    const EXPORT_URL = getExportUrl(sheetUrl);
+    //const EXPORT_URL = getExportUrl(sheetUrl);
 
     try {
-      const response = await fetch(EXPORT_URL);
+     /* const response = await fetch(EXPORT_URL);
       if (!response.ok) throw new Error('Failed to fetch Google Sheet. Ensure it is public.');
       
       const arrayBuffer = await response.arrayBuffer();
-      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });*/
       
-      let tournamentMap = await getTournamentDetailsFromAPI(tournamentId);
+      let tournamentMap = await getTournamentDetailsFromAPI();
       let currentTid = tournamentId;
       if(tournamentMap.length > 0) {
         tournamentMap.map(async (tournament) => {
@@ -189,7 +189,7 @@ const AdminSetup: React.FC = () => {
       
       data = getTournamentData(currentTid);
 
-      const playersToAdd = (await getPlayersFromSheetAPI(currentTid));
+      const playersToAdd = (await getPlayersFromSheetAPI());
       if (playersToAdd.length > 0) {
         bulkAddPlayers(currentTid, playersToAdd);        
       }
@@ -262,7 +262,7 @@ const AdminSetup: React.FC = () => {
                 />
                 
                 <button 
-                  onClick={syncMasterFromGoogleSheet}
+                  onClick={getDataFromDB}
                   disabled={isSyncing}
                   className={`w-full py-3 mt-2 rounded-xl bg-green-600 hover:bg-green-500 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isSyncing ? 'opacity-50' : ''}`}
                 >

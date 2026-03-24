@@ -43,17 +43,20 @@ interface AuctionContextType {
   //refreshPlayersFromSheet: (tournamentId: string) => Promise<void>;
   getTeamsFromSheetAPI: () => Promise<Team[]>;
   getPlayersTeamWiseFromAPI: (teamId : string,tournamentId: string) =>  Promise<Player[]>;
-  getTournamentDetailsFromAPI:  (tournamentId:String) => Promise<Tournament[]>;
+  getTournamentDetailsFromAPI:  () => Promise<Tournament[]>;
   getCategoriesDetailsFromAPI: (tournamentId:String) => Promise<Category[]>;
-  getPlayersFromSheetAPI: (tournamentId: string) => Promise<Player[]>;
+  getPlayersFromSheetAPI: () => Promise<Player[]>;
   clearBids: () => void;
   uploadImage: (file: File) => Promise<string>;
+  loadDataFromDB: () => Promise<void>;
+  flushLocalStorage: () => void;
+
 }
 
 const AuctionContext = createContext<AuctionContextType | undefined>(undefined);
 
 const DEFAULT_UPDATE_URL = "https://script.google.com/macros/s/AKfycbyMwe8LcW6XsLdl_pKZvcL7o7aQjyAS7KYkvG3rZUJIJL8ATVAUjnTds5BMgtBa4TxkCA/exec";
-const DEFAULT_API_UPDATE_URL = "/api"
+const DEFAULT_API_UPDATE_URL = "/api" //proxy is configured in vite.config.ts
 const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ksl1ohIMI4hEHI7Lvu6I1oFs_vWEIBhwYVEQQFsZLo0/edit?gid=0#gid=0";
 
 export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -102,7 +105,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    console.log("Updating the localStorage with latest values !");
+    console.log("Updating the localStorage with latest values with tournament -->"+JSON.stringify(tournaments));
     localStorage.setItem('au_tournaments', JSON.stringify(tournaments));
     localStorage.setItem('au_teams', JSON.stringify(teams));
     localStorage.setItem('au_categories', JSON.stringify(categories));
@@ -123,6 +126,47 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setUpdateUrl = (url: string) => setUpdateUrlState(url);
   const setSheetUrl = (url: string) => setSheetUrlState(url);
 
+  const loadDataFromDB = async () => {
+    setIsSyncing(true);
+    console.log('in load Data from DB !!!!')
+    try {      
+      let tournamentMap = await getTournamentDetailsFromAPI();
+      let currentTid = '';
+      if(tournamentMap.length > 0) {
+        tournamentMap.map(async (tournament) => {
+          const newT = await addTournament(tournament); //adds tournaments as well as updates cache            
+          currentTid = newT.id;      
+                                  
+        });  
+      } else {
+        console.log("No tournament details found !");
+      }      
+
+      const catsToAdd = await getCategoriesDetailsFromAPI(currentTid);
+      if (catsToAdd.length > 0) 
+        bulkAddCategories(currentTid, catsToAdd);  
+
+      const teamsToAdd = await getTeamsFromSheetAPI();
+      if (teamsToAdd.length > 0)
+         bulkAddTeams(currentTid, teamsToAdd);
+
+
+      const playersToAdd = (await getPlayersFromSheetAPI());
+      if (playersToAdd.length > 0) {
+        bulkAddPlayers(currentTid, playersToAdd);        
+      }
+      
+      alert("Master Sync Complete from DB! Tournament details, Teams, Categories, and Players imported.");
+    } catch (err) {
+      console.error("Master Sync Error:", err);
+      alert("Failed to perform Master Sync. Check URL and connectivity.");
+    } finally {
+      setIsSyncing(false);
+    }
+    console.log('end - loadDataFromDB !')
+  };
+
+
   const addTournament = async (t: Tournament) => {    
     /*let newTournament:any;
     if(t.id === undefined){
@@ -130,14 +174,18 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }else {
       newTournament = t;
     }*/
-    if(t.id !== 'undefined' && t.id !== '0' ){      
+    if(t.id && t.id !== '0' ){      
       // Check if tournament with t.id already exists, if so, update it and return the updated tournament
-      const existing = tournaments.find(tournament => tournament.id === t.id);
+      console.log( 'Tournament already exists with id -->'+t.id)
+      const existing = tournaments.find(tournament => tournament.id === t.id);      
       if (existing) {
-        console.log("Tournament already exists , so updating it ");
-        updateTournament(t);
-        return t;
+        console.log(`Tournament - ${t.id} already exists in cache, so updating it`);
+        updateTournament(t);        
+      }else {
+        console.log(`Tournament - ${t.id} not present in cache so adding it `)
+        setTournaments(prev => [...prev, t]);  
       }
+      return t;
     }    
     //Add tournamnet via API
     const targetUrl = updateAPIUrl+"/tournaments"
@@ -156,10 +204,11 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       },
       body: JSON.stringify(payload)
     });
+
     
     if(response.ok){
       const responseData = await response.json();
-      console.log("Adding a new tournament with id -->"+t.id + "for response -->"+JSON.stringify(responseData));    
+      console.log("Added new tournament with response -->"+JSON.stringify(responseData));    
       const newTournament = { ...t, id: (responseData.id || responseData.data?.id || t.id).toString() };  
       setTournaments(prev => [...prev, newTournament]);
       return newTournament;  
@@ -188,16 +237,46 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateTeam = async (updatedTeam: Team) => {
-    const success = await addTeamToSheet(updatedTeam);
-    if (success) {
-      setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+    try {
+      const targetUrl = `${updateAPIUrl}/teams/${updatedTeam.id}`;
+      const payload = {
+        "name": updatedTeam.name,
+        "owner": updatedTeam.owner,
+        "purse_total": updatedTeam.purse,
+        "purse_remaining": updatedTeam.remainingPurse,
+        "players_count": updatedTeam.playersCount || 0,
+        "logo": updatedTeam.logo,
+        "tournament_id": updatedTeam.tournamentId
+      };
+      
+      const response = await fetch(targetUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log(`updated team using --> ${targetUrl} and request body ${JSON.stringify(payload)} ` )
+      if (response.ok) {
+        setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+      } else {
+        console.error('Failed to update team:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error updating team:', error);
     }
   };
   
   const bulkAddTeams = (tournamentId: string, newTeams: Team[]) => {
     setTeams(prev => {
       const otherTournamentTeams = prev.filter(t => t.tournamentId !== tournamentId);
-      return [...otherTournamentTeams, ...newTeams];
+      const currentTournamentTeams = prev.filter(t => t.tournamentId === tournamentId);
+
+      const teamMap = new Map<string, Team>();
+      currentTournamentTeams.forEach(t => teamMap.set(t.id, t));
+      newTeams.forEach(t => teamMap.set(t.id, t));
+
+      const mergedTeams = Array.from(teamMap.values());
+
+      return [...otherTournamentTeams, ...mergedTeams];
     });
   };
 
@@ -394,12 +473,42 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updatePlayer = async (updatedPlayer: Player) => {
-    const response = await addPlayerToSheet(updatedPlayer);
+    //const response = await addPlayerToSheet(updatedPlayer);
+
+    const profiles: any[] = await getProfilesData();
+    const selectedProfile = profiles.filter(p => p.name.toLowerCase() === updatedPlayer.profile.toLowerCase())
+    let profile_id ="";
+    if(selectedProfile){
+        profile_id = selectedProfile[0].id;
+        console.log(`profile id for player -->${profile_id}`)
+    }
+    try{
+      const targetUrl = `${updateAPIUrl}/players/${updatedPlayer.id}`;
+    const payload  ={  
+      "name": updatedPlayer.name,
+      "price": updatedPlayer.soldPrice || 0,
+      "status": updatedPlayer.status ? updatedPlayer.status.toUpperCase() : "AVAILABLE",      
+      "category_id": updatedPlayer.categoryId,        
+      "tournament_id": updatedPlayer.tournamentId,
+      "image_url": updatedPlayer.imageUrl || "", 
+      "team_id" : updatedPlayer.soldToTeamId       
+    };
+      
+      const response = await fetch(targetUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log(`updated player using --> ${targetUrl} and request body ${JSON.stringify(payload)} ` )
     if (response){
       setPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
     }else {
       console.log("Updating player failed !");
     }
+    }catch (error) {
+      console.error('Error updating player :', error);
+    }
+    
     
   };
 
@@ -492,7 +601,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   };
 
-  const getPlayersTeamWiseFromAPI = async (teamId : string, tournamentId:string): Promise<Player[]> =>{
+  const getPlayersTeamWiseFromAPI = async (teamId : string, tournamentId:string): Promise<Player[]> => {
   
     const baseUrl = updateUrl || DEFAULT_UPDATE_URL;
     let teamsUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getPlayersTeamWise`;
@@ -803,12 +912,8 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [tournaments, teams, categories, players]);
 
   
-const getTournamentDetailsFromAPI = async (tournamentId:String): Promise<Tournament[]> => {
-
-  let currentTid = tournamentId;
-
-  const baseAPIUrl = updateAPIUrl;
-  const targetUrl = baseAPIUrl+"/tournaments";  
+const getTournamentDetailsFromAPI = async (): Promise<Tournament[]> => {
+  const targetUrl = updateAPIUrl+"/tournaments";  
   //const baseUrl = updateUrl ;
   //const targetUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=getTournaments`;
   const tournamentResponse =  await fetch(targetUrl, {
@@ -835,7 +940,7 @@ const getTournamentDetailsFromAPI = async (tournamentId:String): Promise<Tournam
               numberOfTeams: parseInt(row['No. of teams'] || row['no. of teams'] || row['numberOfTeams'] ||row['no_of_teams'] || '8'),
               playersPerTeam: parseInt(row['Players per team'] || row['players per team'] || row['playersPerTeam'] || row['players_per_team']|| '15'),
               sheetId: (row['tournament ID'] || row['tournament id'] || row['sheetId'] || row['id'] || '').toString(),
-              id: (row['Tournament ID'] || row['tournament Id'] || row['tournamentId'] || row['id']).toString()
+              id: (row['Tournament ID'] || row['tournament Id'] || row['tournamentId'] || row['id'] || '').toString()
       };
       console.log(`printing tdata after conversion --> ${JSON.stringify(tData)}`)
       updatedTournamentMap.push(tData);
@@ -888,6 +993,12 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
     setBids([]);
   };
   const uploadImage = async (file: File) : Promise<string> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      alert('You must be logged in to upload an image.');
+      console.error('Upload failed: User not authenticated.');
+      return null;
+    }
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `players/${fileName}`;
@@ -908,6 +1019,18 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
     return publicUrlData.publicUrl;
   };
 
+  const flushLocalStorage = () => {
+    //localStorage.clear();
+    setTournaments([]);
+    setTeams([]);
+    setCategories([]);
+    setPlayers([]);
+    setBids([]);
+    //setUser(null);
+    setUpdateUrlState(DEFAULT_API_UPDATE_URL);
+    setSheetUrlState(DEFAULT_SHEET_URL);
+  };
+
 
   return (
     <AuctionContext.Provider value={{
@@ -922,7 +1045,9 @@ const getCategoriesDetailsFromAPI = async (tournamentId: string): Promise<Catego
       getCategoriesDetailsFromAPI,
       getPlayersFromSheetAPI,
       clearBids,
-      uploadImage
+      uploadImage,
+      loadDataFromDB,
+      flushLocalStorage
     }}>
       {children}
     </AuctionContext.Provider>

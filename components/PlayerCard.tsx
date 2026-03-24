@@ -59,7 +59,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, onEdit }) => {
             <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">
               {player.status === PlayerStatus.RETAINED ? `Retained by ${team?.name || ''}` : `Sold To: ${team?.name || 'N/A'}`}
             </p>
-            <p className="text-lg font-bold text-yellow-500">₹{player.soldPrice?.toFixed(2)} Cr</p>
+            <p className="text-lg font-bold text-yellow-500">₹{player.soldPrice != null && Number(player.soldPrice).toFixed(2)} Cr</p>
           </>
         ) : (
           <>

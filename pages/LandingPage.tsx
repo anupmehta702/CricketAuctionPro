@@ -5,11 +5,17 @@ import { useAuction } from '../context/AuctionContext';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { tournaments, players,getTournamentData } = useAuction();
+  const { tournaments,loadDataFromDB, players,getTournamentData } = useAuction();
+  
+  
+
   useEffect(() => {
     if(tournaments.length === 0){
       console.log('calling useEffect of LandingPage to populate tournaments !')
+      //loadDataFromDB();
       getTournamentData('');
+    }else {
+      console.log('tournament is not empty !!')
     }
       
   },[tournaments]);
@@ -34,6 +40,12 @@ const LandingPage: React.FC = () => {
             className="text-xs font-bold text-blue-400 flex items-center gap-1"
           >
             <iconify-icon icon="lucide:plus-circle" /> New
+          </button>
+          <button 
+            onClick={() => loadDataFromDB()}
+            className="text-xs font-bold text-blue-400 flex items-center gap-1"
+          >
+            <iconify-icon icon="lucide:plus-circle" /> Load Data
           </button>
         </div>
 

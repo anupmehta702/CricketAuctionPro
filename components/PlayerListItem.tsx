@@ -38,7 +38,7 @@ const PlayerListItem: React.FC<PlayerListItemProps> = ({ player, onEdit }) => {
               <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">SOLD TO</p>
               <p className="text-sm font-bold">{team.name}</p>
             </div>
-            <p className="text-lg font-bold text-yellow-500">₹{player.soldPrice?.toFixed(2)} Cr</p>
+            <p className="text-lg font-bold text-yellow-500">₹{player.soldPrice != null && Number(player.soldPrice).toFixed(2)} Cr</p>
           </>
         ) : (
           <>

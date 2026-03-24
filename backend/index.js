@@ -6,7 +6,19 @@ const { createClient } = require('@supabase/supabase-js');
 
 
 const app = express();
-app.use(cors({ origin: '*' }));
+//app.use(cors({ origin: '*' }));
+// app.use((req, res, next) => {
+//   res.header('Access-Control-Allow-Origin', '*');
+//   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+//   res.header('Access-Control-Allow-Headers', 'Content-Type');
+//   res.header('Access-Control-Allow-Credentials', 'true');
+//   console.log('Hello , setting extra headers !!')
+//   if ('OPTIONS' == req.method) {
+//     res.sendStatus(200);
+//   } else {
+//     next();
+//   }
+// });
 app.use(express.json());
 const port = process.env.PORT || 3001;
 
@@ -51,15 +63,96 @@ app.post("/players", async (req, res) => {
 
 //Update PLayer
 app.put("/players/:id", async (req, res) => {
-  console.log("Request body for update player -->"+JSON.stringify(req.body));
+  const {name,category_id,image_url,price,team_id} = req.body;
+  console.log(`Request body for update player [${req.params.id}] -->`+JSON.stringify(req.body));
   const { data, error } = await supabase
     .from("players")
-    .update(req.body)
+    .update({name:name,category_id:category_id,image_url:image_url,price:price})
     .eq("id", req.params.id);
+  
+  const {data: existing_team_player, existing_error} = await supabase
+  .from("team_players")
+  .select("*")
+  .eq("player_id",req.params.id);
+  //.single();
+  
+  console.log(`Existing team player --> ${JSON.stringify(existing_team_player)}`)
+
+  if(existing_team_player){
+    const existing_team_id = existing_team_player[0].team_id;
+    const existing_sold_price = existing_team_player[0].price;
+    console.log(`existing details of player before updating , team_id - ${existing_team_id} , soldPrice - ${existing_sold_price}`)
+
+    if(existing_team_id != team_id) {
+      console.log(`existing team id - ${existing_team_id} is different from current team_id - ${team_id}` )
+      //if previous and current team is different, then afjust the purse for previous team 
+      const { data: team_data, error: team_error } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("id", existing_team_id)
+        .single();
+      // updating existing team's purse
+      await supabase
+        .from("teams")
+        .update({
+          purse_remaining: team_data.purse_remaining + existing_sold_price,
+          players_count: team_data.players_count - 1
+        })
+        .eq("id", existing_team_id);        
+    }
+    
+  }
+
+  //get current team's information
+  const { data: team, error: team_error } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("id",team_id)
+    .single();
+  console.log(`Existing team details --> ${JSON.stringify(team)}`);
+  //console.log(`Existing team detail purse_remaining - ${team.purse_remaining} players_count - ${team.players_count}`)
+
+  // updating current team purse
+  await supabase
+  .from("teams")
+  .update({purse_remaining: team.purse_remaining - price,
+     players_count: team.players_count + 1})
+  .eq("id",team_id);        
+
+
+  //update team_players
+  if(existing_team_player){
+    //updating team_players
+    const { team_player_id, t_p_error } = await supabase
+      .from("team_players")
+      .update({ team_id: team_id, price: price })
+      .select("id")
+      .eq("team_id", team_id)
+      .eq("player_id", req.params.id);
+
+    if (t_p_error) {
+      console.log("error while updating player -->" + JSON.stringify(t_p_error));
+      return res.status(500).json({ error: t_p_error.message });
+    }
+  }else {
+    console.log('No details present in team_players, hence inserting in team_players')
+    // add player to team
+    await supabase.from("team_players").insert({
+    team_id: team_id,
+    player_id: req.params.id,
+    price: price,
+    bid: 'Done via update by admin'
+  });
+  }
+   
+  
+
 
   if (error) {
+    console.log("error while updating player -->"+JSON.stringify(error));
     return res.status(500).json({ error: error.message });
   }
+  
   res.status(200).json(data || { success: true });
   
 });
@@ -102,6 +195,7 @@ app.post("/auction", async (req, res) => {
     .select("players_count,purse_remaining")
     .eq("id", teamId)
     .single();
+  console.log(`Existing players_count --> ${team.players_count} , purse_remaining --> ${team.purse_remaining} `)
 
   await supabase
     .from("teams")

@@ -21,3 +21,4 @@ View your app in AI Studio: https://ai.studio/apps/18952fd0-a7bb-4e62-be1b-ced47
 4. TO run backend ,cd backend  && npm start
 5. TO know the URL on which this app is loaded type env and check for WEB_HOST parameter
 6. Ctrl+Shft+P for palette and type generate active tokens to get authorization bearer token for testing API via postman
+7. For cors - npm i cors

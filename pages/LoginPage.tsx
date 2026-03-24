@@ -10,7 +10,7 @@ const LoginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
-    const { login } = useAuction();
+    const { login,flushLocalStorage } = useAuction();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,6 +43,8 @@ const LoginPage: React.FC = () => {
             }
 
             login({ id: profile.id, username: profile.username, role: profile.role });
+            console.log('flushing local storage data on login !')
+            flushLocalStorage();
             navigate('/landing');
         } catch (err: any) {
             setError(err.message);
