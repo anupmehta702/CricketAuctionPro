@@ -16,9 +16,10 @@ View your app in AI Studio: https://ai.studio/apps/18952fd0-a7bb-4e62-be1b-ced47
 1. Install dependencies:
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+3. Run the frontend app:
    `npm run dev`
-4. TO run backend ,cd backend  && npm start
+4. TO run backend ,cd backend  && `npm start`
+Note - proxy settings are done in vite.config.ts wherein /api is replaced by http://localhost:3001/api/
 5. TO know the URL on which this app is loaded type env and check for WEB_HOST parameter
 6. Ctrl+Shft+P for palette and type generate active tokens to get authorization bearer token for testing API via postman
 7. For cors - npm i cors

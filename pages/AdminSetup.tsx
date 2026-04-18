@@ -121,10 +121,11 @@ const AdminSetup: React.FC = () => {
 
   const handleTournamentSubmit = async (e: React.FormEvent) => {   
     e.preventDefault();
-    if (tournamentId !== 'undefined') {      
+    
+    if (tournamentId !== undefined) {            
       updateTournament({ ...tournamentForm, id: tournamentId });
       setActiveStep(Step.TEAMS);
-    } else {
+    } else {      
       const newT = await addTournament(tournamentForm);
       if(newT){
         navigate(`/admin/${newT.id}`);
@@ -236,7 +237,7 @@ const AdminSetup: React.FC = () => {
               <p className="text-sm text-slate-400">Import everything from Google Sheets or enter manually</p>
             </div>
 
-            <div className="glass-card rounded-2xl p-6 border-l-4 border-l-green-500 flex flex-col gap-4">
+            {/* <div className="glass-card rounded-2xl p-6 border-l-4 border-l-green-500 flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <iconify-icon icon="lucide:layers" className="text-green-500 text-xl" />
                 <h3 className="text-sm font-bold uppercase tracking-widest">Master Cloud Sync</h3>
@@ -270,7 +271,7 @@ const AdminSetup: React.FC = () => {
                   {isSyncing ? "Syncing..." : "Run Master Sync"}
                 </button>
               </div>
-            </div>
+            </div> */}
 
             <form id="tournament-form" onSubmit={handleTournamentSubmit} className="flex flex-col gap-6 pb-24">
               <div className="glass-card rounded-2xl p-6 space-y-5">

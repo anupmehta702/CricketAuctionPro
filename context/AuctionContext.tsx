@@ -168,6 +168,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 
   const addTournament = async (t: Tournament) => {    
+    console.log('In add tournament !!')
     /*let newTournament:any;
     if(t.id === undefined){
       newTournament = { ...t, id: Date.now().toString() };    
@@ -189,6 +190,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }    
     //Add tournamnet via API
     const targetUrl = updateAPIUrl+"/tournaments"
+    //const targetUrl = 'http://localhost:3001/tournaments';
     const payload = {
         "name" : t.name,
         "organization" : t.name,
@@ -768,7 +770,7 @@ export const AuctionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let pStr = '';
     if(player['cricket_profiles']){
       pStr = player['cricket_profiles']['name'];
-      console.log('cricketProfile -->'+pStr);
+      //console.log('cricketProfile -->'+pStr);
       //const pStr = player['Profile'].toString().toLowerCase();
       if (pStr.includes('bowl')) profile = PlayerProfile.BOWLER;
       else if (pStr.includes('all') || pStr.includes('ar')) profile = PlayerProfile.ALL_ROUNDER;
