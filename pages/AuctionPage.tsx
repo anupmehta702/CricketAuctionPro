@@ -31,7 +31,8 @@ const AuctionPage: React.FC = () => {
   }, []);
   
   const currentHighestBid = playerBids[0];
-  const nextMinBid = currentHighestBid ? currentHighestBid.amount + 0.1 : (playerCategory?.basePrice || 0);
+  //const nextMinBid = currentHighestBid ? currentHighestBid.amount + 0.1 : (playerCategory?.basePrice || 0);
+  const nextMinBid = currentHighestBid ? currentHighestBid.amount  : (playerCategory?.basePrice || 0);
 
   useEffect(() => {
     if (playerCategory) {
