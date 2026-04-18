@@ -52,6 +52,41 @@ const AuctionPage: React.FC = () => {
     });
     if (error) alert(error);
   };
+  const handlePlaceBidWithValidation = () => {
+    if (!selectedBidTeam) {
+      return alert("Please select a team from Section 2 first!");
+    }
+
+    const selectedTeam = data.teams.find(t => t.id === selectedBidTeam);
+
+    if (!selectedTeam) {
+      return alert("Could not find the selected team. Please try again.");
+    }
+
+    if (selectedTeam.playersCount >= data.tournament.playersPerTeam) {
+      return alert(`'${selectedTeam.name}' already has a full squad of ${data.tournament.playersPerTeam} and cannot bid further.`);
+    }
+
+    const availablePurse = selectedTeam.remainingPurse - (data.tournament.playersPerTeam - selectedTeam.playersCount -1);
+
+    if (bidAmount > availablePurse) {
+      return alert(
+        `'${selectedTeam.name}' cannot place this bid as it exceeds their available purse of ₹${availablePurse.toFixed(2)} Cr.`
+      );
+    }
+
+    const error = placeBid({
+      tournamentId: tournamentId!,
+      playerId: playerId!,
+      teamId: selectedBidTeam,
+      amount: bidAmount,
+    });
+
+    if (error) {
+      alert(error);
+    }
+  };
+
 
   const handleSold = async () => {
     if (!currentHighestBid) return alert("No bids have been placed for this player yet!");
@@ -221,8 +256,11 @@ const AuctionPage: React.FC = () => {
                   </div>
                   <h4 className="text-xs font-bold truncate mb-1">{t.name}</h4>
                   <p className={`text-[10px] font-bold ${selectedBidTeam === t.id ? 'text-blue-100' : 'text-yellow-500/80'}`}>
-                    ₹{t.remainingPurse.toFixed(2)} Cr Left
+                    ₹{t.remainingPurse.toFixed(2)} Cr Left                    
                   </p>
+                  <p className={`text-[10px] font-bold ${selectedBidTeam === t.id ? 'text-blue-100' : 'text-green-500/80'}`}>
+                    Available purse : ₹{(t.remainingPurse - (data.tournament.playersPerTeam - t.playersCount -1)).toFixed(2)} Cr
+                  </p>                  
                 </div>
               </button>
             ))}
@@ -247,7 +285,7 @@ const AuctionPage: React.FC = () => {
               
               <div className="relative group">
                 <button 
-                  onClick={handlePlaceBid}
+                  onClick={handlePlaceBidWithValidation}
                   className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-[1.5rem] py-5 flex items-center justify-center gap-4 font-bold font-display text-xl shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all group"
                 >
                   <iconify-icon icon="lucide:gavel" className="text-2xl group-hover:rotate-12 transition-transform" />
